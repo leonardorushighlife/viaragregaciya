@@ -24,7 +24,7 @@ class TelegramBot:
         self.setup_handlers()
 
     def setup_handlers(self):
-        @self.dp.message(F.document, F.chat.id == config.admin_chat_id)
+        @self.dp.message(F.document, lambda m: m.chat.id in config.admin_chat_ids)
         async def handle_document(message: types.Message):
             if message.document.file_name.lower().endswith('.xlsx'):
                 file_id = message.document.file_id
@@ -43,21 +43,25 @@ class TelegramBot:
                 await message.answer("Пожалуйста, отправьте файл в формате .xlsx")
 
     async def send_result(self, file_path, caption):
-        if not config.receiver_chat_id:
-            logging.error("Receiver Chat ID is not set.")
+        receivers = config.receiver_chat_ids
+        if not receivers:
+            logging.error("No receiver Chat IDs set.")
             return False
 
-        try:
-            document = FSInputFile(file_path)
-            await self.bot.send_document(config.receiver_chat_id, document, caption=caption)
-            return True
-        except TelegramBadRequest as e:
-            logging.error(f"Telegram Bad Request (check receiver_chat_id): {e}")
-        except TelegramForbiddenError as e:
-            logging.error(f"Telegram Forbidden (bot blocked or no access to chat): {e}")
-        except Exception as e:
-            logging.error(f"Error sending file to {config.receiver_chat_id}: {e}")
-        return False
+        success = False
+        for chat_id in receivers:
+            try:
+                document = FSInputFile(file_path)
+                await self.bot.send_document(chat_id, document, caption=caption)
+                success = True
+                logging.info(f"Result sent to {chat_id}")
+            except TelegramBadRequest as e:
+                logging.error(f"Telegram Bad Request for {chat_id}: {e}")
+            except TelegramForbiddenError as e:
+                logging.error(f"Telegram Forbidden for {chat_id}: {e}")
+            except Exception as e:
+                logging.error(f"Error sending file to {chat_id}: {e}")
+        return success
 
     async def start(self):
         if not config.api_token:

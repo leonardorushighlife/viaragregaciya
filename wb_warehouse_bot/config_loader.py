@@ -20,24 +20,29 @@ class Config:
 
         self.config.read(filepath, encoding='utf-8')
 
-    def _parse_id(self, key):
+    def _parse_ids(self, key):
         val = self.config.get('Telegram', key, fallback='')
-        try:
-            return int(val)
-        except (ValueError, TypeError):
-            return None
+        if not val:
+            return []
+        ids = []
+        for part in val.replace(',', ' ').split():
+            try:
+                ids.append(int(part))
+            except (ValueError, TypeError):
+                continue
+        return ids
 
     @property
     def api_token(self):
         return self.config.get('Telegram', 'api_token', fallback='')
 
     @property
-    def admin_chat_id(self):
-        return self._parse_id('admin_chat_id')
+    def admin_chat_ids(self):
+        return self._parse_ids('admin_chat_id')
 
     @property
-    def receiver_chat_id(self):
-        return self._parse_id('receiver_chat_id')
+    def receiver_chat_ids(self):
+        return self._parse_ids('receiver_chat_id')
 
     @property
     def proxy_url(self):
