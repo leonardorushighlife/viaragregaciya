@@ -9,6 +9,20 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayo
 from PySide6.QtCore import Qt, Signal, QObject, Slot
 from excel_handler import ExcelHandler
 
+# Mapping for Russian keyboard layout to English QWERTY
+# This maps what's typed in RU layout to what it would be in EN layout
+RU_TO_EN = {
+    'й': 'q', 'ц': 'w', 'у': 'e', 'к': 'r', 'е': 't', 'н': 'y', 'г': 'u', 'ш': 'i', 'щ': 'o', 'з': 'p', 'х': '[', 'ъ': ']',
+    'ф': 'a', 'ы': 's', 'в': 'd', 'а': 'f', 'п': 'g', 'р': 'h', 'о': 'j', 'л': 'k', 'д': 'l', 'ж': ';', 'э': "'",
+    'я': 'z', 'ч': 'x', 'с': 'c', 'м': 'v', 'и': 'b', 'т': 'n', 'ь': 'm', 'б': ',', 'ю': '.', '.': '/',
+    'Й': 'Q', 'Ц': 'W', 'У': 'E', 'К': 'R', 'Е': 'T', 'Н': 'Y', 'Г': 'U', 'Ш': 'I', 'Щ': 'O', 'З': 'P', 'Х': '{', 'Ъ': '}',
+    'Ф': 'A', 'Ы': 'S', 'В': 'D', 'А': 'F', 'П': 'G', 'Р': 'H', 'О': 'J', 'Л': 'K', 'Д': 'L', 'Ж': ':', 'Э': '"',
+    'Я': 'Z', 'Ч': 'X', 'С': 'C', 'М': 'V', 'И': 'B', 'Т': 'N', 'Ь': 'M', 'Б': '<', 'Ю': '>'
+}
+
+def translate_to_en(text):
+    return "".join(RU_TO_EN.get(c, c) for c in text)
+
 class OrderAssemblyWindow(QDialog):
     def __init__(self, excel_path, parent=None):
         super().__init__(parent)
@@ -80,9 +94,12 @@ class OrderAssemblyWindow(QDialog):
         if not self.is_collecting:
             return
 
-        kiz = self.scan_input.text().strip()
-        if not kiz:
+        raw_kiz = self.scan_input.text().strip()
+        if not raw_kiz:
             return
+
+        # Convert Russian input to English equivalents
+        kiz = translate_to_en(raw_kiz)
 
         kiz_col = self.handler.kiz_col_idx - 1
         if kiz_col < 0:
@@ -130,18 +147,19 @@ class OrderAssemblyWindow(QDialog):
         end_time = datetime.datetime.now()
         duration = end_time - self.start_time
 
-        stats = (f"Время начала: {self.start_time.strftime('%H:%M:%S')}\n"
-                 f"Время окончания: {end_time.strftime('%H:%M:%S')}\n"
-                 f"Общее время: {str(duration).split('.')[0]}\n"
-                 f"Позиций в заказе: {self.table.rowCount()}")
+        stats = (f"Отчет о сборке:\n"
+                 f"Файл: {os.path.basename(self.excel_path)}\n"
+                 f"Начало: {self.start_time.strftime('%H:%M:%S')}\n"
+                 f"Окончание: {end_time.strftime('%H:%M:%S')}\n"
+                 f"Длительность: {str(duration).split('.')[0]}\n"
+                 f"Всего позиций: {self.table.rowCount()}")
 
-        QMessageBox.information(self, "Статистика сборки", stats)
-        self.parent().log("Сборка завершена.\n" + stats)
+        self.parent().log("Сборка завершена. Отправка отчета...")
 
         # Save file
         output_path = self.handler.save_file()
 
-        # Notify parent to send file
+        # Notify parent to send file and stats to Telegram
         self.parent().on_assembly_finished(output_path, stats)
         self.accept()
 
@@ -189,10 +207,10 @@ class MainWindow(QMainWindow):
 
     def on_assembly_finished(self, file_path, stats):
         if self.bot_instance and self.bot_instance.loop:
-            self.log("Отправка результата в Telegram...")
+            self.log("Отправка результата и отчета в Telegram...")
             asyncio.run_coroutine_threadsafe(
-                self.bot_instance.send_result(file_path, f"Заказ собран!\n{stats}"),
+                self.bot_instance.send_result(file_path, stats),
                 self.bot_instance.loop
             )
         else:
-            self.log("Бот не запущен или не инициализирован, файл не отправлен.")
+            self.log("Бот не запущен, файл не отправлен.")

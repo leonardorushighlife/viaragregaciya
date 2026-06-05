@@ -6,6 +6,7 @@ from aiogram.types import FSInputFile
 from aiogram.client.session.aiohttp import AiohttpSession
 from config_loader import config
 from aiohttp_socks import ProxyConnector
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 class TelegramBot:
     def __init__(self, on_file_received_callback):
@@ -42,14 +43,20 @@ class TelegramBot:
                 await message.answer("Пожалуйста, отправьте файл в формате .xlsx")
 
     async def send_result(self, file_path, caption):
-        if config.receiver_chat_id:
-            try:
-                document = FSInputFile(file_path)
-                await self.bot.send_document(config.receiver_chat_id, document, caption=caption)
-                return True
-            except Exception as e:
-                logging.error(f"Error sending file: {e}")
-                return False
+        if not config.receiver_chat_id:
+            logging.error("Receiver Chat ID is not set.")
+            return False
+
+        try:
+            document = FSInputFile(file_path)
+            await self.bot.send_document(config.receiver_chat_id, document, caption=caption)
+            return True
+        except TelegramBadRequest as e:
+            logging.error(f"Telegram Bad Request (check receiver_chat_id): {e}")
+        except TelegramForbiddenError as e:
+            logging.error(f"Telegram Forbidden (bot blocked or no access to chat): {e}")
+        except Exception as e:
+            logging.error(f"Error sending file to {config.receiver_chat_id}: {e}")
         return False
 
     async def start(self):
@@ -57,7 +64,10 @@ class TelegramBot:
             logging.error("API Token is not set in config.ini")
             return
         self.loop = asyncio.get_running_loop()
-        await self.dp.start_polling(self.bot)
+        try:
+            await self.dp.start_polling(self.bot)
+        except Exception as e:
+            logging.error(f"Bot polling error: {e}")
 
 async def run_bot(bot_instance):
     await bot_instance.start()
