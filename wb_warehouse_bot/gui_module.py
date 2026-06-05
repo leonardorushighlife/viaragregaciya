@@ -3,14 +3,28 @@ import os
 import datetime
 import logging
 import asyncio
-from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout,
-                             QWidget, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
-                             QLineEdit, QLabel, QTextEdit, QMessageBox, QDialog)
-from PySide6.QtCore import Qt, Signal, QObject, Slot
+
+# Attempt to import PySide6 or PyQt5
+try:
+    from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout,
+                                 QWidget, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
+                                 QLineEdit, QLabel, QTextEdit, QMessageBox, QDialog)
+    from PySide6.QtCore import Qt, Signal, QObject, Slot
+    QT_VERSION = "PySide6"
+except ImportError:
+    try:
+        from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout,
+                                     QWidget, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
+                                     QLineEdit, QLabel, QTextEdit, QMessageBox, QDialog)
+        from PyQt5.QtCore import Qt, pyqtSignal as Signal, QObject, pyqtSlot as Slot
+        QT_VERSION = "PyQt5"
+    except ImportError:
+        print("Ошибка: Не установлена библиотека PySide6 или PyQt5. Пожалуйста, установите одну из них.")
+        sys.exit(1)
+
 from excel_handler import ExcelHandler
 
 # Mapping for Russian keyboard layout to English QWERTY
-# This maps what's typed in RU layout to what it would be in EN layout
 RU_TO_EN = {
     'й': 'q', 'ц': 'w', 'у': 'e', 'к': 'r', 'е': 't', 'н': 'y', 'г': 'u', 'ш': 'i', 'щ': 'o', 'з': 'p', 'х': '[', 'ъ': ']',
     'ф': 'a', 'ы': 's', 'в': 'd', 'а': 'f', 'п': 'g', 'р': 'h', 'о': 'j', 'л': 'k', 'д': 'l', 'ж': ';', 'э': "'",
@@ -169,7 +183,7 @@ class MainWindow(QMainWindow):
     def __init__(self, bot_instance=None):
         super().__init__()
         self.bot_instance = bot_instance
-        self.setWindowTitle("WB Warehouse Automation")
+        self.setWindowTitle(f"WB Warehouse Automation ({QT_VERSION})")
         self.resize(600, 400)
 
         self.init_ui()
@@ -188,7 +202,7 @@ class MainWindow(QMainWindow):
         self.log_output.setReadOnly(True)
         layout.addWidget(self.log_output)
 
-        self.log("Программа запущена. Ожидание файлов из Telegram...")
+        self.log(f"Программа запущена ({QT_VERSION}). Ожидание файлов...")
 
     def log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
