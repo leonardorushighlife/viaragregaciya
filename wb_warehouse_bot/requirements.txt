@@ -1,5 +1,4 @@
-PySide6; python_version < "3.13"
-PyQt5; python_version >= "3.12"
+PyQt5
 aiogram
 openpyxl
 aiohttp

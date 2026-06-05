@@ -23,6 +23,7 @@ except ImportError:
         sys.exit(1)
 
 from excel_handler import ExcelHandler
+from stats_manager import save_assembly_result, get_statistics, format_duration
 
 # Mapping for Russian keyboard layout to English QWERTY
 RU_TO_EN = {
@@ -36,6 +37,32 @@ RU_TO_EN = {
 
 def translate_to_en(text):
     return "".join(RU_TO_EN.get(c, c) for c in text)
+
+class StatsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Статистика сборок")
+        self.resize(400, 300)
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        stats = get_statistics()
+
+        if not stats:
+            layout.addWidget(QLabel("История сборок пуста."))
+        else:
+            for period, name in [('week', 'За последнюю неделю'), ('month', 'За последний месяц'), ('total', 'Всего')]:
+                p_stats = stats[period]
+                group_box = QLabel(f"<b>{name}:</b><br>"
+                                   f"Сборок: {p_stats['count']}<br>"
+                                   f"Товаров: {p_stats['items']}<br>"
+                                   f"Времени: {format_duration(p_stats['time'])}")
+                layout.addWidget(group_box)
+
+        close_btn = QPushButton("Закрыть")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
 
 class OrderAssemblyWindow(QDialog):
     def __init__(self, excel_path, parent=None):
@@ -146,11 +173,13 @@ class OrderAssemblyWindow(QDialog):
     def finish_assembly(self):
         kiz_col = self.handler.kiz_col_idx - 1
         all_done = True
+        item_count = 0
         for r in range(self.table.rowCount()):
             item = self.table.item(r, kiz_col)
             if not item or not item.text().strip():
                 all_done = False
-                break
+            else:
+                item_count += 1
 
         if not all_done:
             reply = QMessageBox.question(self, "Завершение", "Не все позиции собраны. Все равно завершить?",
@@ -160,15 +189,19 @@ class OrderAssemblyWindow(QDialog):
 
         end_time = datetime.datetime.now()
         duration = end_time - self.start_time
+        duration_seconds = duration.total_seconds()
 
         stats = (f"Отчет о сборке:\n"
                  f"Файл: {os.path.basename(self.excel_path)}\n"
                  f"Начало: {self.start_time.strftime('%H:%M:%S')}\n"
                  f"Окончание: {end_time.strftime('%H:%M:%S')}\n"
-                 f"Длительность: {str(duration).split('.')[0]}\n"
+                 f"Длительность: {format_duration(duration_seconds)}\n"
                  f"Всего позиций: {self.table.rowCount()}")
 
-        self.parent().log("Сборка завершена. Отправка отчета...")
+        self.parent().log("Сборка завершена. Сохранение в историю и отправка отчета...")
+
+        # Save to history
+        save_assembly_result(item_count, duration_seconds)
 
         # Save file
         output_path = self.handler.save_file()
@@ -184,7 +217,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.bot_instance = bot_instance
         self.setWindowTitle(f"WB Warehouse Automation ({QT_VERSION})")
-        self.resize(600, 400)
+        self.resize(600, 450)
 
         self.init_ui()
         self.file_received.connect(self.open_assembly_window)
@@ -194,9 +227,16 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
+        btn_layout = QHBoxLayout()
         self.load_btn = QPushButton("Загрузить заказ (Excel)")
         self.load_btn.clicked.connect(self.manual_load)
-        layout.addWidget(self.load_btn)
+        btn_layout.addWidget(self.load_btn)
+
+        self.stats_btn = QPushButton("Показать статистику")
+        self.stats_btn.clicked.connect(self.show_stats)
+        btn_layout.addWidget(self.stats_btn)
+
+        layout.addLayout(btn_layout)
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
@@ -212,6 +252,10 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Выберите файл заказа", "", "Excel Files (*.xlsx)")
         if file_path:
             self.open_assembly_window(file_path)
+
+    def show_stats(self):
+        dialog = StatsDialog(self)
+        dialog.exec()
 
     @Slot(str)
     def open_assembly_window(self, file_path):

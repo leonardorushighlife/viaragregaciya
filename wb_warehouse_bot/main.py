@@ -1,10 +1,22 @@
 import sys
 import asyncio
 import threading
-from PySide6.QtWidgets import QApplication
+import logging
+
+# Attempt to import PySide6 or PyQt5
+try:
+    from PySide6.QtWidgets import QApplication
+    QT_EXEC = "exec"
+except ImportError:
+    try:
+        from PyQt5.QtWidgets import QApplication
+        QT_EXEC = "exec_"
+    except ImportError:
+        print("Ошибка: Не установлена библиотека PySide6 или PyQt5. Пожалуйста, установите одну из них.")
+        sys.exit(1)
+
 from gui_module import MainWindow
 from bot_module import TelegramBot, run_bot
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +46,12 @@ def main():
     bot_thread.start()
 
     window.show()
-    sys.exit(app.exec())
+
+    # Run event loop using correct method for the library
+    if QT_EXEC == "exec":
+        sys.exit(app.exec())
+    else:
+        sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
