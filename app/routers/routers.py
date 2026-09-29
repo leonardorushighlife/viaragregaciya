@@ -7,7 +7,7 @@ from datetime import datetime, date, time, timezone
 from typing import Optional
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, ADMIN_PASSWORD
 from app.models.models import Order, Product, Task, Notification, Report, OrderStatus, OperatorSession, User
 from app.services.email_service import send_email
 from app.services.chestny_znak import cz_service
@@ -30,8 +30,89 @@ def get_user_for_request(request: Request, db: Session) -> User:
 main_router = APIRouter()
 
 @main_router.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return RedirectResponse(url="/facade")
+async def index(request: Request, db: Session = Depends(get_db)):
+    saved_role = request.cookies.get("saved_role")
+    if saved_role == "facade":
+        return RedirectResponse(url="/facade", status_code=303)
+    elif saved_role == "labeling":
+        return RedirectResponse(url="/labeling", status_code=303)
+    elif saved_role == "operator":
+        return RedirectResponse(url="/operator", status_code=303)
+    elif saved_role == "admin":
+        return RedirectResponse(url="/settings", status_code=303)
+    else:
+        return RedirectResponse(url="/select-role", status_code=303)
+
+@main_router.get("/select-role", response_class=HTMLResponse)
+async def select_role_page(request: Request):
+    return templates.TemplateResponse(request=request, name="select_role.html", context={
+        "error_msg": None
+    })
+
+@main_router.post("/select-role", response_class=HTMLResponse)
+async def select_role_post(
+    request: Request,
+    role: str = Form(...),
+    operator_username: Optional[str] = Form(None),
+    admin_password: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    target_url = "/select-role"
+    user_to_set = None
+
+    if role == "operator":
+        op_name = operator_username or "op1"
+        user_to_set = db.query(User).filter(User.username == op_name).first()
+        if not user_to_set:
+            user_to_set = User(username=op_name, role="operator", is_admin=False)
+            db.add(user_to_set)
+            db.commit()
+            db.refresh(user_to_set)
+        target_url = "/operator"
+
+    elif role == "admin":
+        if admin_password != ADMIN_PASSWORD:
+            return templates.TemplateResponse(request=request, name="select_role.html", context={
+                "error_msg": "Неверный пароль администратора. Введите правильный пароль (10072025)."
+            })
+        user_to_set = db.query(User).filter(User.is_admin == True).first()
+        if not user_to_set:
+            user_to_set = User(username="admin", password_hash=ADMIN_PASSWORD, role="admin", is_admin=True)
+            db.add(user_to_set)
+            db.commit()
+            db.refresh(user_to_set)
+        target_url = "/settings"
+
+    elif role == "facade":
+        user_to_set = db.query(User).filter(User.role == "facade").first()
+        if not user_to_set:
+            user_to_set = User(username="facade_mgr", role="facade", is_admin=False)
+            db.add(user_to_set)
+            db.commit()
+            db.refresh(user_to_set)
+        target_url = "/facade"
+
+    elif role == "labeling":
+        user_to_set = db.query(User).filter(User.role == "labeling").first()
+        if not user_to_set:
+            user_to_set = User(username="labeling_mgr", role="labeling", is_admin=False)
+            db.add(user_to_set)
+            db.commit()
+            db.refresh(user_to_set)
+        target_url = "/labeling"
+
+    response = RedirectResponse(url=target_url, status_code=303)
+    if user_to_set:
+        response.set_cookie("user_id", str(user_to_set.id), max_age=30*24*3600)
+        response.set_cookie("saved_role", role, max_age=30*24*3600)
+    return response
+
+@main_router.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/select-role", status_code=303)
+    response.delete_cookie("user_id")
+    response.delete_cookie("saved_role")
+    return response
 
 
 # --- 1. FACADE ROUTER ---

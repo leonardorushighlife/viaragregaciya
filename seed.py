@@ -17,11 +17,12 @@ def seed():
         db.query(User).delete()
         db.commit()
 
-        # 1. Create Users (1 Admin with password 10072025, 2 Operators)
+        # 1. Create Users (1 Admin with password 10072025, 3 Operators: op1, op2, op3)
         admin = User(username="admin", password_hash="10072025", role="admin", is_admin=True)
         op1 = User(username="op1", role="operator", is_admin=False)
         op2 = User(username="op2", role="operator", is_admin=False)
-        db.add_all([admin, op1, op2])
+        op3 = User(username="op3", role="operator", is_admin=False)
+        db.add_all([admin, op1, op2, op3])
         db.commit()
 
         # 2. Create Default App Settings
@@ -66,7 +67,7 @@ def seed():
         db.add(task)
         db.commit()
 
-        # 5. Create 2 Active Sessions for the order (op1 and op2)
+        # 5. Create Active Sessions for the order
         session1 = OperatorSession(
             order_id=order.id,
             operator_id=op1.id,
@@ -89,8 +90,8 @@ def seed():
         print(f" - Admin user: {admin.username} (id={admin.id}, password=10072025, is_admin={admin.is_admin})")
         print(f" - Operator 1: {op1.username} (id={op1.id})")
         print(f" - Operator 2: {op2.username} (id={op2.id})")
+        print(f" - Operator 3: {op3.username} (id={op3.id})")
         print(f" - Order #{order.order_number} (status={order.status}, total_applied={order.total_applied}/120, remaining={order.remaining_codes})")
-        print(f" - Active sessions: 1 (op1: {session1.applied_qty}), 2 (op2: {session2.applied_qty})")
 
     except Exception as e:
         db.rollback()
