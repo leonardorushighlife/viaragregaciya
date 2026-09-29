@@ -1,9 +1,9 @@
 import logging
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
+from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import datetime, date, timezone
+from datetime import datetime, date, time, timezone
 from typing import Optional
 
 from app.core.database import get_db
@@ -11,6 +11,7 @@ from app.core.auth import get_current_user
 from app.models.models import Order, Product, Task, Notification, Report, OrderStatus, OperatorSession, User
 from app.services.email_service import send_email
 from app.services.chestny_znak import cz_service
+from app.services.excel_import import import_products_from_excel
 
 templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger("malvik.sessions")
@@ -52,12 +53,16 @@ async def facade_dashboard(request: Request, db: Session = Depends(get_db)):
         db.commit()
         products = db.query(Product).all()
 
+    current_hour = datetime.now().hour
+    is_after_12 = current_hour >= 12
+
     return templates.TemplateResponse(request=request, name="facade/dashboard.html", context={
         "role": "facade",
         "current_user": current_user,
         "orders": orders,
         "products": products,
-        "today": date.today()
+        "today": date.today(),
+        "is_after_12": is_after_12
     })
 
 @facade_router.post("/order/create")
@@ -66,16 +71,26 @@ async def create_order(
     product_id: int = Form(...),
     quantity: int = Form(...),
     shipment_date: str = Form(...),
+    production_date: Optional[str] = Form(None),
+    urgency_reason: Optional[str] = Form(""),
     notes: str = Form(""),
     send_email_notification: bool = Form(False),
     db: Session = Depends(get_db)
 ):
-    parsed_date = datetime.strptime(shipment_date, "%Y-%m-%d").date()
+    parsed_shipment_date = datetime.strptime(shipment_date, "%Y-%m-%d").date()
+    parsed_production_date = datetime.strptime(production_date, "%Y-%m-%d").date() if production_date else None
+
+    # Check if order created after 12:00
+    if datetime.now().hour >= 12 and not urgency_reason:
+        urgency_reason = "Заказ создан после 12:00 (срочный заказ)"
+
     new_order = Order(
         order_number=order_number,
         product_id=product_id,
         quantity=quantity,
-        shipment_date=parsed_date,
+        shipment_date=parsed_shipment_date,
+        production_date=parsed_production_date,
+        urgency_reason=urgency_reason,
         notes=notes,
         status=OrderStatus.DRAFT.value
     )
@@ -85,10 +100,20 @@ async def create_order(
     if send_email_notification:
         await send_email(
             subject=f"Новый заказ на фасовку #{order_number}",
-            body=f"Создан новый заказ #{order_number}. Кол-во: {quantity}. Дата отгрузки: {shipment_date}.",
+            body=f"Создан новый заказ #{order_number}. Кол-во: {quantity}. Дата отгрузки: {shipment_date}. Срочность: {urgency_reason or 'Нет'}.",
             recipient="labeling@malvik.ru"
         )
 
+    return RedirectResponse(url="/facade", status_code=303)
+
+@facade_router.post("/products/import-excel")
+async def import_excel_products(
+    excel_file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    contents = await excel_file.read()
+    count = import_products_from_excel(contents, db)
+    logger.info("Imported %s products from Excel file %s", count, excel_file.filename)
     return RedirectResponse(url="/facade", status_code=303)
 
 @facade_router.post("/order/{order_id}/send-to-labeling")

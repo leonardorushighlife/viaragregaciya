@@ -7,9 +7,14 @@
     <div class="col-md-12 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <h2><i class="bi bi-box-seam me-2"></i>Панель Менеджера Фасовки (Фасад)</h2>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createOrderModal">
-                <i class="bi bi-plus-lg me-1"></i> Создать заказ
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importExcelModal">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Загрузить базу товаров (Excel)
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createOrderModal">
+                    <i class="bi bi-plus-lg me-1"></i> Создать заказ
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -98,38 +103,70 @@
 
 <!-- Modal Create Order -->
 <div class="modal fade" id="createOrderModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form action="/facade/order/create" method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title">Новый заказ на фасовку</h5>
+                    <h5 class="modal-title">Новый заказ на фасовку и коды</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Номер заказа</label>
-                        <input type="text" name="order_number" class="form-control" required placeholder="Например: ORD-2026-001">
+                    <!-- Urgency Alert Notice -->
+                    <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                        <i class="bi bi-clock-history fs-4 me-3 text-primary"></i>
+                        <div>
+                            <strong>Правило приема заказов:</strong> Заказы принимаются до <strong>12:00</strong>. При оформлении заказа после 12:00 необходимо указать основание для срочности.
+                        </div>
                     </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Номер заказа</label>
+                            <input type="text" name="order_number" class="form-control" required placeholder="Например: ORD-2026-001">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Количество (шт)</label>
+                            <input type="number" name="quantity" class="form-control" required min="1" value="100">
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Продукция</label>
+                        <label class="form-label fw-bold">Продукция</label>
                         <select name="product_id" class="form-select" required>
                             {% for p in products %}
                             <option value="{{ p.id }}">{{ p.official_name }} (GTIN: {{ p.gtin or 'Н/Д' }})</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Количество (шт)</label>
-                        <input type="number" name="quantity" class="form-control" required min="1" value="100">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Дата отгрузки</label>
+                            <input type="date" name="shipment_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Дата производства</label>
+                            <input type="date" name="production_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}">
+                        </div>
                     </div>
+
+                    {% if is_after_12 %}
                     <div class="mb-3">
-                        <label class="form-label">Дата отгрузки</label>
-                        <input type="date" name="shipment_date" class="form-control" required>
+                        <label class="form-label fw-bold text-danger"><i class="bi bi-exclamation-circle me-1"></i>Основание срочности (после 12:00):</label>
+                        <input type="text" name="urgency_reason" class="form-control border-danger" required placeholder="Укажите причину срочного заказа">
                     </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Основание срочности (опционально):</label>
+                        <input type="text" name="urgency_reason" class="form-control" placeholder="Заполняется если требуется срочная обработка">
+                    </div>
+                    {% endif %}
+
                     <div class="mb-3">
                         <label class="form-label">Примечания</label>
                         <textarea name="notes" class="form-control" rows="2"></textarea>
                     </div>
+
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="send_email_notification" id="sendEmail">
                         <label class="form-check-label" for="sendEmail">
@@ -140,6 +177,31 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button type="submit" class="btn btn-primary">Создать заказ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Excel Products -->
+<div class="modal fade" id="importExcelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/facade/products/import-excel" method="POST" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Загрузка базы товаров из Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Выберите файл Excel (.xlsx) со списком продукции. Файл должен содержать столбцы: <strong>Наименование продукции, GTIN / Штрихкод</strong>.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Файл Excel (.xlsx)</label>
+                        <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-upload me-1"></i> Загрузить товары</button>
                 </div>
             </form>
         </div>
