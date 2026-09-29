@@ -19,7 +19,7 @@ def setup_db():
 
     admin = db.query(User).filter(User.username == "admin").first()
     if not admin:
-        admin = User(username="admin", role="admin", is_admin=True)
+        admin = User(username="admin", password_hash="10072025", role="admin", is_admin=True)
         db.add(admin)
 
     op1 = db.query(User).filter(User.username == "op1").first()
@@ -74,10 +74,20 @@ async def test_acceptance_criteria_1_2_3_partial_labeling():
     db.close()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # Step 1: op1 takes order, sticks 30, pauses
+        # Step 1: op1 takes order, sets production date, sticks 30, pauses
         resp = await ac.post(f"/operator/task/{task_id}/start?user_id={op1_id}", follow_redirects=False)
         assert resp.status_code == 303
         s1_id = int(resp.headers["location"].split("/")[-1])
+
+        # Operator sets production date
+        prod_date_str = date.today().strftime("%Y-%m-%d")
+        resp = await ac.post(f"/operator/session/{s1_id}/production-date?user_id={op1_id}", data={"production_date": prod_date_str}, follow_redirects=True)
+        assert resp.status_code == 200
+
+        db = SessionLocal()
+        o = db.get(Order, order_id)
+        assert o.production_date == date.today()
+        db.close()
 
         resp = await ac.post(f"/operator/session/{s1_id}/increment?user_id={op1_id}", data={"amount": 30}, follow_redirects=True)
         assert resp.status_code == 200

@@ -237,7 +237,7 @@ def check_single_active_session(user_id: int, current_task_id: int, db: Session)
         OperatorSession.operator_id == user_id,
         OperatorSession.status == "running"
     ).first()
-    if active and active.order.tasks:
+    if active and active.order and active.order.tasks:
         task = active.order.tasks[0]
         if task.id != current_task_id and not user_id_is_admin(user_id, db):
             raise HTTPException(
@@ -396,6 +396,28 @@ async def session_detail(session_id: int, request: Request, db: Session = Depend
         "my_sessions": my_sessions,
         "current_time": datetime.utcnow()
     })
+
+@operator_router.post("/session/{session_id}/production-date")
+async def set_production_date(
+    session_id: int,
+    production_date: str = Form(...),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    current_user = get_user_for_request(request, db)
+    session = db.get(OperatorSession, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    try:
+        parsed_date = datetime.strptime(production_date, "%Y-%m-%d").date()
+        session.order.production_date = parsed_date
+        db.commit()
+        logger.info("Operator %s set production_date=%s for Order #%s", current_user.username, parsed_date, session.order.order_number)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат даты производства. Используйте ГГГГ-ММ-ДД")
+
+    return RedirectResponse(url=f"/operator/session/{session_id}", status_code=303)
 
 @operator_router.post("/session/{session_id}/increment")
 async def increment_session(

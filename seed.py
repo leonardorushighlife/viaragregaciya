@@ -17,8 +17,8 @@ def seed():
         db.query(User).delete()
         db.commit()
 
-        # 1. Create Users (1 Admin, 2 Operators)
-        admin = User(username="admin", role="admin", is_admin=True)
+        # 1. Create Users (1 Admin with password 10072025, 2 Operators)
+        admin = User(username="admin", password_hash="10072025", role="admin", is_admin=True)
         op1 = User(username="op1", role="operator", is_admin=False)
         op2 = User(username="op2", role="operator", is_admin=False)
         db.add_all([admin, op1, op2])
@@ -47,6 +47,7 @@ def seed():
             product_id=product.id,
             quantity=120,
             defect_qty=2,
+            production_date=date.today(),
             actual_labeling_date=date.today(),
             shipment_date=date.today() + timedelta(days=5),
             status=OrderStatus.IN_PACKAGING.value,
@@ -85,7 +86,7 @@ def seed():
         db.commit()
 
         print("Successfully seeded database:")
-        print(f" - Admin user: {admin.username} (id={admin.id}, is_admin={admin.is_admin})")
+        print(f" - Admin user: {admin.username} (id={admin.id}, password=10072025, is_admin={admin.is_admin})")
         print(f" - Operator 1: {op1.username} (id={op1.id})")
         print(f" - Operator 2: {op2.username} (id={op2.id})")
         print(f" - Order #{order.order_number} (status={order.status}, total_applied={order.total_applied}/120, remaining={order.remaining_codes})")

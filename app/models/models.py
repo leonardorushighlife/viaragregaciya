@@ -55,6 +55,7 @@ class Order(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     shipment_date = Column(Date, nullable=False)
+    production_date = Column(Date, nullable=True)        # Дата производства (устанавливается оператором)
     status = Column(String(50), default=OrderStatus.DRAFT.value)
     notes = Column(Text, nullable=True)
     defect_qty = Column(Integer, default=0, nullable=False)
