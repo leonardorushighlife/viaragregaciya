@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <title>Оператор Фасовки - MALVIK-LABEL</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/operator.css">
+</head>
+<body class="operator-mode bg-light">
+    <div class="container-fluid py-3">
+        <!-- Top Bar with User Switcher -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fw-bold m-0 text-primary"><i class="bi bi-person-workspace me-2"></i>Оператор Фасовки</h3>
+            <div class="d-flex align-items-center gap-2">
+                {% if all_users %}
+                <div class="dropdown">
+                    <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+                    </button>
+                    <ul class="dropdown-menu">
+                        {% for u in all_users %}
+                        <li>
+                            <a class="dropdown-menu-item dropdown-item {% if u.id == current_user.id %}active{% endif %}" href="/switch-user?user_id={{ u.id }}&redirect_url=/operator">
+                                {{ u.username }} {% if u.is_admin %}(admin){% else %}(оператор){% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <a href="/" class="btn btn-outline-secondary"><i class="bi bi-house"></i> На главную</a>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-pills nav-fill mb-4 fs-5 fw-bold" id="operatorTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active py-3" id="my-sessions-tab" data-bs-toggle="tab" data-bs-target="#my-sessions" type="button" role="tab">
+                    <i class="bi bi-person-check-fill me-2"></i>Мои задания ({{ my_active_sessions|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-3" id="all-tasks-tab" data-bs-toggle="tab" data-bs-target="#all-tasks" type="button" role="tab">
+                    <i class="bi bi-list-task me-2"></i>Общий список ({{ available_tasks|length }})
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Contents -->
+        <div class="tab-content" id="operatorTabsContent">
+            <!-- Tab 1: Мои сессии -->
+            <div class="tab-pane fade show active" id="my-sessions" role="tabpanel">
+                <div class="row">
+                    {% for session in my_active_sessions %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 border-2 border-primary shadow-sm">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="fw-bold mb-0">Заказ #{{ session.order.order_number }}</h4>
+                                        <span class="badge bg-success fs-6">Активна</span>
+                                    </div>
+                                    <p class="text-muted mb-2 fs-5">
+                                        {{ session.order.product.official_name }}
+                                    </p>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1 fw-bold">
+                                            <span>Общий прогресс:</span>
+                                            <span>{{ session.order.total_applied }} / {{ session.order.quantity }} шт.</span>
+                                        </div>
+                                        <div class="progress" style="height: 12px;">
+                                            <div class="progress-bar bg-primary" role="progressbar"
+                                                 style="width: {{ (session.order.total_applied / session.order.quantity * 100)|round }}%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="p-2 bg-light rounded text-center border mb-3">
+                                        <span class="text-muted fs-6">Нанесено в текущей сессии:</span>
+                                        <div class="fs-3 fw-bold text-success">{{ session.applied_qty }} шт.</div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <a href="/operator/session/{{ session.id }}" class="btn btn-primary w-100 operator-btn">
+                                        <i class="bi bi-play-circle-fill me-2"></i>Продолжить фасовку
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-inbox text-secondary display-1"></i>
+                        <h4 class="text-muted mt-3">У вас нет активных сессий</h4>
+                        <p class="text-muted">Выберите задание из вкладки «Общий список», чтобы начать фасовку.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Tab 2: Общий список -->
+            <div class="tab-pane fade" id="all-tasks" role="tabpanel">
+                <div class="row">
+                    {% for task in available_tasks %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 border-2 {% if task.status == 'in_progress' %}border-warning{% else %}border-secondary{% endif %} shadow-sm">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="fw-bold mb-0">Заказ #{{ task.order.order_number }}</h4>
+                                        <span class="badge {% if task.status == 'in_progress' %}bg-warning text-dark{% else %}bg-secondary{% endif %} fs-6">
+                                            {% if task.status == 'pending' %}Ожидает{% else %}В процессе{% endif %}
+                                        </span>
+                                    </div>
+                                    <p class="text-muted mb-2 fs-5">
+                                        {{ task.order.product.official_name }}
+                                    </p>
+                                    <div class="d-flex align-items-center text-muted mb-2">
+                                        <i class="bi bi-people-fill me-2 text-primary fs-5"></i>
+                                        <span>Операторов на заказе: <strong>{{ task.order.operators_count }}</strong></span>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1 fw-bold">
+                                            <span>Прогресс:</span>
+                                            <span>{{ task.order.total_applied }} / {{ task.quantity_target }} шт.</span>
+                                        </div>
+                                        <div class="progress" style="height: 12px;">
+                                            <div class="progress-bar bg-warning" role="progressbar"
+                                                 style="width: {{ (task.order.total_applied / task.quantity_target * 100)|round }}%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    {% if task.status == 'pending' %}
+                                    <form action="/operator/task/{{ task.id }}/start" method="POST">
+                                        <button type="submit" class="btn btn-success w-100 operator-btn">
+                                            <i class="bi bi-play-circle-fill me-2"></i>Взять в работу
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form action="/operator/task/{{ task.id }}/continue" method="POST">
+                                        <button type="submit" class="btn btn-warning w-100 operator-btn text-dark fw-bold">
+                                            <i class="bi bi-arrow-right-circle-fill me-2"></i>Продолжить
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-check2-circle text-success display-1"></i>
+                        <h3 class="text-muted mt-3">Нет доступных задач в общем списке</h3>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js');
+        }
+    </script>
+</body>
+</html>

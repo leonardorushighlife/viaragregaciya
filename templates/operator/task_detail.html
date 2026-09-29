@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заказ #{{ session.order.order_number }} - Оператор {{ current_user.username }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/operator.css">
+</head>
+<body class="operator-mode bg-dark text-white">
+    <div class="container-fluid py-2">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-2 mb-3">
+            <div>
+                <a href="/operator" class="btn btn-outline-light me-2"><i class="bi bi-arrow-left"></i> Назад</a>
+                <span class="fs-4 fw-bold">Заказ #{{ session.order.order_number }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-primary fs-6"><i class="bi bi-person-fill me-1"></i>{{ current_user.username }}</span>
+                <div class="fs-4 fw-bold text-warning">
+                    <i class="bi bi-stopwatch me-1"></i> <span id="timer">00:00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Details -->
+        <div class="row mb-3">
+            <div class="col-12 text-center">
+                <h3 class="text-info fw-bold mb-1">{{ session.order.product.official_name }}</h3>
+                <div class="fs-5 text-secondary">
+                    План заказа: <strong>{{ session.order.quantity }}</strong> шт.
+                    {% if session.order.actual_labeling_date %}
+                    | Начато: <strong>{{ session.order.actual_labeling_date.strftime('%d.%m.%Y') }}</strong>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Block: Progress & Remaining Codes (Остаток кодов) -->
+        <div class="card bg-secondary text-white border-0 shadow mb-4">
+            <div class="card-body">
+                <div class="row align-items-center text-center">
+                    <div class="col-md-4 border-end border-dark py-2">
+                        <div class="text-uppercase text-light small">Остаток кодов</div>
+                        <div class="display-3 fw-bold text-warning" id="remaining-codes-display">{{ session.order.remaining_codes }}</div>
+                    </div>
+                    <div class="col-md-4 border-end border-dark py-2">
+                        <div class="text-uppercase text-light small">Наклеено всего</div>
+                        <div class="display-4 fw-bold text-success">{{ session.order.total_applied }} / {{ session.order.quantity }}</div>
+                    </div>
+                    <div class="col-md-4 py-2">
+                        <div class="text-uppercase text-light small">Брак (отдел)</div>
+                        <div class="display-4 fw-bold text-danger">{{ session.order.defect_qty }}</div>
+                    </div>
+                </div>
+                <div class="progress bg-dark mt-3" style="height: 18px;">
+                    <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated fs-6 fw-bold text-dark" role="progressbar"
+                         style="width: {{ (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0)|round }}%;">
+                        {{ (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0)|round }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Counter Display for Current Session -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <div class="bg-secondary rounded p-3 d-inline-block w-100 shadow border border-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-uppercase text-light fs-6">Моя сессия ({{ session.status }})</span>
+                        {% if session.status == 'running' %}
+                        <form action="/operator/session/{{ session.id }}/pause" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-warning btn-sm fw-bold">
+                                <i class="bi bi-pause-fill me-1"></i>Приостановить
+                            </button>
+                        </form>
+                        {% elif session.status == 'paused' %}
+                        <form action="/operator/session/{{ session.id }}/resume" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-success btn-sm fw-bold">
+                                <i class="bi bi-play-fill me-1"></i>Продолжить
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <div class="count-display text-success fw-bold display-1" id="completed-count">{{ session.applied_qty }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Increments (Enabled only if running and remaining > 0) -->
+        <div class="row g-3 mb-4">
+            <div class="col-6">
+                <form action="/operator/session/{{ session.id }}/increment" method="POST">
+                    <input type="hidden" name="amount" value="1">
+                    <button type="submit" class="btn btn-success w-100 operator-btn py-4 fs-1" {% if session.status != 'running' or session.order.remaining_codes == 0 %}disabled{% endif %}>
+                        +1
+                    </button>
+                </form>
+            </div>
+            <div class="col-6">
+                <form action="/operator/session/{{ session.id }}/increment" method="POST">
+                    <input type="hidden" name="amount" value="10">
+                    <button type="submit" class="btn btn-primary w-100 operator-btn py-4 fs-1" {% if session.status != 'running' or session.order.remaining_codes == 0 %}disabled{% endif %}>
+                        +10
+                    </button>
+                </form>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-outline-info w-100 operator-btn py-3" data-bs-toggle="modal" data-bs-target="#manualKeypadModal" {% if session.status != 'running' or session.order.remaining_codes == 0 %}disabled{% endif %}>
+                    <i class="bi bi-calculator me-2"></i> Ввести вручную (остаток: {{ session.order.remaining_codes }})
+                </button>
+            </div>
+        </div>
+
+        <!-- Session List Section -->
+        {% if my_sessions %}
+        <div class="card bg-dark border-secondary text-white mb-4">
+            <div class="card-header border-secondary fw-bold">
+                <i class="bi bi-clock-history me-2"></i>Мои сессии по этому заказу
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush bg-dark">
+                    {% for s in my_sessions %}
+                    <li class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge {% if s.status == 'running' %}bg-success{% elif s.status == 'paused' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-2">
+                                {{ s.status }}
+                            </span>
+                            Сессия #{{ s.id }} (с {{ s.started_at.strftime('%H:%M:%S') }})
+                        </div>
+                        <span class="fw-bold text-warning">+{{ s.applied_qty }} шт.</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Finish Session Button -->
+        <div class="row">
+            <div class="col-12">
+                {% if session.status in ['running', 'paused'] %}
+                <form action="/operator/session/{{ session.id }}/finish" method="POST">
+                    <button type="submit" class="btn btn-danger w-100 operator-btn py-3 fs-4">
+                        <i class="bi bi-check-circle-fill me-2"></i> Завершить эту сессию
+                    </button>
+                </form>
+                {% else %}
+                <button class="btn btn-secondary w-100 operator-btn py-3 fs-4" disabled>
+                    <i class="bi bi-lock-fill me-2"></i> Сессия завершена
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- On-screen Keypad Modal -->
+    <div class="modal fade text-dark" id="manualKeypadModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-secondary text-white">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fs-3"><i class="bi bi-calculator me-2"></i>Ввод количества</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <form action="/operator/session/{{ session.id }}/increment" method="POST">
+                        <input type="number" id="manualInput" name="amount" class="form-control form-control-lg text-center fs-1 fw-bold mb-3" value="{{ session.order.remaining_codes }}" required min="1">
+                        <div class="row g-2 onscreen-keyboard mb-3">
+                            {% for num in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] %}
+                            <div class="col-4">
+                                <button type="button" class="btn btn-light w-100 fw-bold fs-4 py-2" onclick="appendNum('{{ num }}')">{{ num }}</button>
+                            </div>
+                            {% endfor %}
+                            <div class="col-8">
+                                <button type="button" class="btn btn-warning w-100 fw-bold fs-4 py-2" onclick="clearInput()">Сброс</button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 operator-btn fs-4">Подтвердить</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function appendNum(num) {
+            const input = document.getElementById('manualInput');
+            if (input.value === '0' || input.value === '') {
+                input.value = num;
+            } else {
+                input.value += num;
+            }
+        }
+
+        function clearInput() {
+            document.getElementById('manualInput').value = '';
+        }
+
+        let startTime = new Date("{{ session.started_at.isoformat() }}");
+        {% if session.finished_at %}
+            let endTime = new Date("{{ session.finished_at.isoformat() }}");
+            let diff = Math.floor((endTime - startTime) / 1000);
+            updateTimerDisplay(diff);
+        {% else %}
+            setInterval(() => {
+                let now = new Date();
+                let diff = Math.floor((now - startTime) / 1000);
+                updateTimerDisplay(diff);
+            }, 1000);
+        {% endif %}
+
+        function updateTimerDisplay(seconds) {
+            if (seconds < 0) seconds = 0;
+            let hrs = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            let mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            let secs = (seconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer').innerText = `${hrs}:${mins}:${secs}`;
+        }
+    </script>
+</body>
+</html>

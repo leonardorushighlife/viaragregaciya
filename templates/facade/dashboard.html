@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Фасад / Менеджер фасовки - MALVIK-LABEL{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-box-seam me-2"></i>Панель Менеджера Фасовки (Фасад)</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createOrderModal">
+                <i class="bi bi-plus-lg me-1"></i> Создать заказ
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">
+        <i class="bi bi-list-task me-2"></i>Список заказов на фасовку
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№ Заказа</th>
+                        <th>Продукция</th>
+                        <th>Имя (Фасад)</th>
+                        <th>Количество</th>
+                        <th>Остаток</th>
+                        <th>Брак</th>
+                        <th>Дата отгрузки</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td class="fw-bold">#{{ order.order_number }}</td>
+                        <td>{{ order.product.official_name }}</td>
+                        <td>
+                            <form action="/facade/product/{{ order.product.id }}/update-name" method="POST" class="d-flex">
+                                <input type="text" name="facade_name" class="form-control form-control-sm me-1" value="{{ order.product.facade_name or '' }}" placeholder="Внутреннее имя">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Сохранить имя"><i class="bi bi-check"></i></button>
+                            </form>
+                        </td>
+                        <td>{{ order.quantity }} шт.</td>
+                        <td class="fw-bold text-primary">{{ order.remaining_codes }} шт.</td>
+                        <td>
+                            <form action="/facade/order/{{ order.id }}/defect" method="POST" class="d-flex align-items-center" style="max-width: 130px;">
+                                <input type="number" name="defect_qty" class="form-control form-control-sm me-1" value="{{ order.defect_qty }}" min="0" required>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Сохранить брак"><i class="bi bi-save"></i></button>
+                            </form>
+                        </td>
+                        <td>
+                            <span class="badge {% if (order.shipment_date - today).days <= 2 %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ order.shipment_date.strftime('%d.%m.%Y') }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if order.status == 'DRAFT' %}
+                                <span class="badge bg-secondary">Черновик</span>
+                            {% elif order.status == 'SENT_TO_LABELING' %}
+                                <span class="badge bg-info text-dark">Передан в маркировку</span>
+                            {% elif order.status == 'CODES_REQUESTED' %}
+                                <span class="badge bg-warning text-dark">Коды запрошены</span>
+                            {% elif order.status == 'CODES_PRINTED' %}
+                                <span class="badge bg-primary">Коды напечатаны</span>
+                            {% elif order.status == 'IN_PACKAGING' %}
+                                <span class="badge bg-info">В процессе фасовки</span>
+                            {% elif order.status == 'PACKAGED' %}
+                                <span class="badge bg-success">Упаковано</span>
+                            {% elif order.status == 'COMPLETED' %}
+                                <span class="badge bg-dark">Завершен</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.status == 'DRAFT' %}
+                            <form action="/facade/order/{{ order.id }}/send-to-labeling" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-send me-1"></i> В маркировку
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">Заказы пока не созданы</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Create Order -->
+<div class="modal fade" id="createOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/facade/order/create" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Новый заказ на фасовку</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Номер заказа</label>
+                        <input type="text" name="order_number" class="form-control" required placeholder="Например: ORD-2026-001">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Продукция</label>
+                        <select name="product_id" class="form-select" required>
+                            {% for p in products %}
+                            <option value="{{ p.id }}">{{ p.official_name }} (GTIN: {{ p.gtin or 'Н/Д' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Количество (шт)</label>
+                        <input type="number" name="quantity" class="form-control" required min="1" value="100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Дата отгрузки</label>
+                        <input type="date" name="shipment_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Примечания</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="send_email_notification" id="sendEmail">
+                        <label class="form-check-label" for="sendEmail">
+                            Отправить уведомление по Email в отдел маркировки
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать заказ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

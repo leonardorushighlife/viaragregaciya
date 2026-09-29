@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Настройки - MALVIK-LABEL{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2><i class="bi bi-gear-fill me-2"></i>Системные настройки</h2>
+    </div>
+</div>
+
+{% if message %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">
+                <i class="bi bi-diagram-3 me-2"></i>Сетевые параметры ролей
+            </div>
+            <div class="card-body">
+                <form action="/settings" method="POST">
+                    <table class="table table-bordered align-middle mb-4">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Роль / Отдел</th>
+                                <th>IP-адрес / Hostname</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-bold">IP для отдела фасовки</td>
+                                <td>
+                                    <input type="text" name="ip_facade" class="form-control" value="{{ settings_dict.get('ip_facade', '') }}" placeholder="например, 192.168.1.10">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">IP для отдела маркировки</td>
+                                <td>
+                                    <input type="text" name="ip_labeling" class="form-control" value="{{ settings_dict.get('ip_labeling', '') }}" placeholder="например, 192.168.1.11">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">IP для операторов</td>
+                                <td>
+                                    <input type="text" name="ip_operator" class="form-control" value="{{ settings_dict.get('ip_operator', '') }}" placeholder="например, 192.168.1.20">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-save me-1"></i> Сохранить настройки
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
