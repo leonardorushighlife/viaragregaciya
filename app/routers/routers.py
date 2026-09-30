@@ -38,6 +38,8 @@ async def index(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/labeling", status_code=303)
     elif saved_role == "operator":
         return RedirectResponse(url="/operator", status_code=303)
+    elif saved_role == "warehouse":
+        return RedirectResponse(url="/warehouse", status_code=303)
     elif saved_role == "admin":
         return RedirectResponse(url="/settings", status_code=303)
     else:
@@ -101,6 +103,15 @@ async def select_role_post(
             db.refresh(user_to_set)
         target_url = "/labeling"
 
+    elif role == "warehouse":
+        user_to_set = db.query(User).filter(User.role == "warehouse").first()
+        if not user_to_set:
+            user_to_set = User(username="warehouse_mgr", role="warehouse", is_admin=False)
+            db.add(user_to_set)
+            db.commit()
+            db.refresh(user_to_set)
+        target_url = "/warehouse"
+
     response = RedirectResponse(url=target_url, status_code=303)
     if user_to_set:
         response.set_cookie("user_id", str(user_to_set.id), max_age=30*24*3600)
@@ -113,6 +124,21 @@ async def logout():
     response.delete_cookie("user_id")
     response.delete_cookie("saved_role")
     return response
+
+
+# --- 0. WAREHOUSE ROUTER ---
+warehouse_router = APIRouter(prefix="/warehouse")
+
+@warehouse_router.get("", response_class=HTMLResponse)
+async def warehouse_dashboard(request: Request, db: Session = Depends(get_db)):
+    current_user = get_user_for_request(request, db)
+    orders = db.query(Order).filter(Order.status.in_(["SENT_TO_WAREHOUSE", OrderStatus.COMPLETED.value])).order_by(Order.shipment_date.asc()).all()
+    return templates.TemplateResponse(request=request, name="warehouse/dashboard.html", context={
+        "role": "warehouse",
+        "current_user": current_user,
+        "orders": orders,
+        "today": date.today()
+    })
 
 
 # --- 1. FACADE ROUTER ---
@@ -160,16 +186,17 @@ async def create_order(
     send_email_notification: bool = Form(False),
     db: Session = Depends(get_db)
 ):
+    order_created_date = date.today()
     parsed_shipment_date = datetime.strptime(shipment_date, "%Y-%m-%d").date()
     parsed_production_date = datetime.strptime(production_date, "%Y-%m-%d").date() if production_date else None
 
-    # Validate production_date <= today + 20 days
+    # Validate production_date <= order_date + 20 days
     if parsed_production_date:
-        max_allowed_date = date.today() + timedelta(days=20)
+        max_allowed_date = order_created_date + timedelta(days=20)
         if parsed_production_date > max_allowed_date:
             raise HTTPException(
                 status_code=400,
-                detail=f"Заказ кодов можно делать максимум за 20 дней до ожидаемой даты производства. Выбранная дата: {parsed_production_date.strftime('%d.%m.%Y')}, допустимо до {max_allowed_date.strftime('%d.%m.%Y')}."
+                detail=f"Заказ кода можно делать максимум за 20 дней до ожидаемой даты производства. Дата заказа: {order_created_date.strftime('%d.%m.%Y')}. Выбранная дата производства: {parsed_production_date.strftime('%d.%m.%Y')}, допустимо не позднее {max_allowed_date.strftime('%d.%m.%Y')}."
             )
 
     # Check if order created after 12:00
@@ -220,6 +247,33 @@ async def send_to_labeling(order_id: int, db: Session = Depends(get_db)):
         )
         db.add(notif)
         db.commit()
+    return RedirectResponse(url="/facade", status_code=303)
+
+@facade_router.post("/order/{order_id}/send-to-warehouse")
+async def send_to_warehouse(order_id: int, db: Session = Depends(get_db)):
+    order = db.get(Order, order_id)
+    if order:
+        order.status = "SENT_TO_WAREHOUSE"
+
+        # Notification to Labeling department that products are transferred to warehouse and need to be introduced into circulation
+        notif_labeling = Notification(
+            role="LABELING",
+            title=f"Передача на склад и ввод в оборот: Заказ #{order.order_number}",
+            message=f"Заказ #{order.order_number} передан на склад. Фактически изготовлено и обклеено: {order.total_applied} шт. Пожалуйста, подайте данные о вводе в оборот в Честный Знак."
+        )
+
+        # Notification to Warehouse
+        notif_warehouse = Notification(
+            role="WAREHOUSE",
+            title=f"Поступление товара на склад: Заказ #{order.order_number}",
+            message=f"На склад передан заказ #{order.order_number} ({order.product.official_name}). Фактическое количество: {order.total_applied} шт."
+        )
+
+        db.add(notif_labeling)
+        db.add(notif_warehouse)
+        db.commit()
+        logger.info("Order #%s sent to warehouse (total_applied=%s)", order.order_number, order.total_applied)
+
     return RedirectResponse(url="/facade", status_code=303)
 
 @facade_router.post("/order/{order_id}/defect")

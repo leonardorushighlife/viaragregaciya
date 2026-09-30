@@ -21,7 +21,7 @@
     </style>
 </head>
 <body class="d-flex align-items-center min-vh-100 py-4">
-    <div class="container" style="max-width: 900px;">
+    <div class="container" style="max-width: 1100px;">
         <div class="text-center mb-5">
             <h1 class="fw-bold text-warning display-4 mb-2"><i class="bi bi-tags-fill me-3"></i>MALVIK-LABEL</h1>
             <p class="text-secondary fs-4">Выберите вашу рабочую роль для начала работы</p>
@@ -33,17 +33,17 @@
         </div>
         {% endif %}
 
-        <div class="row g-4">
+        <div class="row g-4 justify-content-center">
             <!-- Facade Role -->
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-2">
                 <form action="/select-role" method="POST" class="h-100">
                     <input type="hidden" name="role" value="facade">
                     <button type="submit" class="btn text-start p-0 w-100 h-100 border-0 bg-transparent">
                         <div class="card h-100 border-primary shadow-sm role-card">
-                            <div class="card-body text-center p-4">
-                                <i class="bi bi-box-seam display-3 text-primary mb-3"></i>
-                                <h4 class="fw-bold text-dark">Фасад</h4>
-                                <p class="text-muted small">Менеджер фасовки (создание и передача заказов)</p>
+                            <div class="card-body text-center p-3">
+                                <i class="bi bi-box-seam display-4 text-primary mb-2"></i>
+                                <h5 class="fw-bold text-dark">Фасад</h5>
+                                <p class="text-muted small mb-0">Менеджер фасовки</p>
                             </div>
                         </div>
                     </button>
@@ -51,15 +51,31 @@
             </div>
 
             <!-- Labeling Role -->
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-2">
                 <form action="/select-role" method="POST" class="h-100">
                     <input type="hidden" name="role" value="labeling">
                     <button type="submit" class="btn text-start p-0 w-100 h-100 border-0 bg-transparent">
                         <div class="card h-100 border-warning shadow-sm role-card">
-                            <div class="card-body text-center p-4">
-                                <i class="bi bi-qr-code-scan display-3 text-warning mb-3"></i>
-                                <h4 class="fw-bold text-dark">Маркировка</h4>
-                                <p class="text-muted small">Отдел маркировки (запрос и печать кодов)</p>
+                            <div class="card-body text-center p-3">
+                                <i class="bi bi-qr-code-scan display-4 text-warning mb-2"></i>
+                                <h5 class="fw-bold text-dark">Маркировка</h5>
+                                <p class="text-muted small mb-0">Отдел маркировки</p>
+                            </div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Warehouse Role -->
+            <div class="col-md-6 col-lg-2">
+                <form action="/select-role" method="POST" class="h-100">
+                    <input type="hidden" name="role" value="warehouse">
+                    <button type="submit" class="btn text-start p-0 w-100 h-100 border-0 bg-transparent">
+                        <div class="card h-100 border-info shadow-sm role-card">
+                            <div class="card-body text-center p-3">
+                                <i class="bi bi-house-door display-4 text-info mb-2"></i>
+                                <h5 class="fw-bold text-dark">Склад</h5>
+                                <p class="text-muted small mb-0">Приемка на склад</p>
                             </div>
                         </div>
                     </button>

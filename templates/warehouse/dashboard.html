@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Склад - MALVIK-LABEL{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-house-door me-2 text-info"></i>Панель Склада</h2>
+            <span class="badge bg-info text-dark fs-6"><i class="bi bi-person-circle me-1"></i>{{ current_user.username }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">
+        <i class="bi bi-boxes me-2"></i>Принятые на склад заказы и готовая продукция
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№ Заказа</th>
+                        <th>Продукция</th>
+                        <th>GTIN</th>
+                        <th>Заказано</th>
+                        <th>Фактически наклеено</th>
+                        <th>Дата производства</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td class="fw-bold">#{{ order.order_number }}</td>
+                        <td>{{ order.product.official_name }}</td>
+                        <td><code>{{ order.product.gtin or 'Н/Д' }}</code></td>
+                        <td>{{ order.quantity }} шт.</td>
+                        <td class="fw-bold text-success fs-5">{{ order.total_applied }} шт.</td>
+                        <td>
+                            {% if order.production_date %}
+                            <span class="badge bg-primary fs-6">{{ order.production_date.strftime('%d.%m.%Y') }}</span>
+                            {% else %}
+                            <span class="text-muted">Не указана</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.status == 'SENT_TO_WAREHOUSE' %}
+                                <span class="badge bg-warning text-dark"><i class="bi bi-truck me-1"></i>Передан на склад</span>
+                            {% else %}
+                                <span class="badge bg-success"><i class="bi bi-check-all me-1"></i>Принят на складе</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">Нет заказов, переданных на склад</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

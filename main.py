@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.routers.routers import main_router, facade_router, labeling_router, operator_router, notif_router
+from app.routers.routers import main_router, facade_router, labeling_router, operator_router, notif_router, warehouse_router
 from app.routers.settings_router import settings_router
 from app.routers.today_router import today_router
 from app.services.scheduler import start_scheduler, scheduler
@@ -26,6 +26,7 @@ app.include_router(main_router)
 app.include_router(facade_router)
 app.include_router(labeling_router)
 app.include_router(operator_router)
+app.include_router(warehouse_router)
 app.include_router(notif_router)
 app.include_router(settings_router)
 app.include_router(today_router)
