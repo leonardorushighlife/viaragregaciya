@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import datetime, date, time, timezone
+from datetime import datetime, date, time, timezone, timedelta
 from typing import Optional
 
 from app.core.database import get_db
@@ -136,6 +136,7 @@ async def facade_dashboard(request: Request, db: Session = Depends(get_db)):
 
     current_hour = datetime.now().hour
     is_after_12 = current_hour >= 12
+    max_prod_date = date.today() + timedelta(days=20)
 
     return templates.TemplateResponse(request=request, name="facade/dashboard.html", context={
         "role": "facade",
@@ -143,6 +144,7 @@ async def facade_dashboard(request: Request, db: Session = Depends(get_db)):
         "orders": orders,
         "products": products,
         "today": date.today(),
+        "max_prod_date": max_prod_date,
         "is_after_12": is_after_12
     })
 
@@ -160,6 +162,15 @@ async def create_order(
 ):
     parsed_shipment_date = datetime.strptime(shipment_date, "%Y-%m-%d").date()
     parsed_production_date = datetime.strptime(production_date, "%Y-%m-%d").date() if production_date else None
+
+    # Validate production_date <= today + 20 days
+    if parsed_production_date:
+        max_allowed_date = date.today() + timedelta(days=20)
+        if parsed_production_date > max_allowed_date:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Заказ кодов можно делать максимум за 20 дней до ожидаемой даты производства. Выбранная дата: {parsed_production_date.strftime('%d.%m.%Y')}, допустимо до {max_allowed_date.strftime('%d.%m.%Y')}."
+            )
 
     # Check if order created after 12:00
     if datetime.now().hour >= 12 and not urgency_reason:
@@ -303,6 +314,15 @@ async def submit_report(
         )
         order.status = OrderStatus.COMPLETED.value
         db.add(report)
+
+        # Create notification to perform introducing into circulation (Ввод в оборот)
+        notif = Notification(
+            role="LABELING",
+            title=f"Отчет о нанесении подтвержден: Заказ #{order.order_number}",
+            message=f"Отчет о нанесении для заказа #{order.order_number} подтвержден. Необходимо подать данные о вводе кодов маркировки в оборот (Честный Знак)."
+        )
+        db.add(notif)
+
         db.commit()
     return RedirectResponse(url="/labeling", status_code=303)
 
@@ -568,7 +588,7 @@ async def increment_session(
         notif = Notification(
             role="LABELING",
             title=f"Фасовка завершена: Заказ #{session.order.order_number}",
-            message=f"Заказ #{session.order.order_number} полностью упакован ({session.order.total_applied}/{session.order.quantity})."
+            message=f"Заказ #{session.order.order_number} полностью упакован ({session.order.total_applied}/{session.order.quantity}). Отделу маркировки необходимо сделать отчет о нанесении."
         )
         db.add(notif)
         logger.info("Order #%s automatically completed (total_applied=%s)", session.order.order_number, session.order.total_applied)
@@ -654,7 +674,7 @@ async def finish_session(
             notif = Notification(
                 role="LABELING",
                 title=f"Фасовка завершена: Заказ #{session.order.order_number}",
-                message=f"Заказ #{session.order.order_number} полностью упакован."
+            message=f"Заказ #{session.order.order_number} полностью упакован. Отделу маркировки необходимо сделать отчет о нанесении."
             )
             db.add(notif)
             logger.info("Order #%s completed upon session finish", session.order.order_number)

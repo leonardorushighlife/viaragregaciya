@@ -111,11 +111,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Urgency Alert Notice -->
-                    <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
-                        <i class="bi bi-clock-history fs-4 me-3 text-primary"></i>
+                    <!-- Urgency & Production Date Rules Notice -->
+                    <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-warning"></i>
                         <div>
-                            <strong>Правило приема заказов:</strong> Заказы принимаются до <strong>12:00</strong>. При оформлении заказа после 12:00 необходимо указать основание для срочности.
+                            <div><strong>Правило приема заказов:</strong> Заказы принимаются до <strong>12:00</strong>. При оформлении заказа после 12:00 необходимо указать основание для срочности.</div>
+                            <div class="mt-1"><strong>Ограничение по дате производства:</strong> Заказ кода можно делать максимум за <strong>20 дней</strong> до ожидаемой даты производства.</div>
                         </div>
                     </div>
 
@@ -146,7 +147,8 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-bold">Дата производства</label>
-                            <input type="date" name="production_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}">
+                            <input type="date" name="production_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}" max="{{ max_prod_date.strftime('%Y-%m-%d') }}" required>
+                            <div class="form-text text-muted">Максимально до {{ max_prod_date.strftime('%d.%m.%Y') }} (+20 дней)</div>
                         </div>
                     </div>
 

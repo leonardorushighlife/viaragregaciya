@@ -31,14 +31,21 @@ def import_products_from_excel(file_bytes: bytes, db: Session) -> int:
                     continue
                 col_name = header[idx]
                 val_str = str(cell_val).strip()
+                # Clean excel formulas like ="text" or =""text""
+                if val_str.startswith('="') and val_str.endswith('"'):
+                    val_str = val_str[2:-1].strip()
+                if val_str.startswith('"') and val_str.endswith('"'):
+                    val_str = val_str[1:-1].strip()
+
                 if "фасад" in col_name:
                     facade_name = val_str
                 elif "маркировк" in col_name:
                     labeling_name = val_str
                 elif "gtin" in col_name or "штрихкод" in col_name:
                     gtin = val_str
-                elif "продукци" in col_name or "официальн" in col_name or col_name in ["наименование", "название"]:
-                    official_name = val_str
+                elif "продукци" in col_name or "официальн" in col_name or "наименование" in col_name or "название" in col_name:
+                    if not official_name:
+                        official_name = val_str
 
         if official_name:
             existing = db.query(Product).filter(Product.official_name == official_name).first()
