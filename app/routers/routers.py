@@ -308,12 +308,53 @@ labeling_router = APIRouter(prefix="/labeling")
 async def labeling_dashboard(request: Request, db: Session = Depends(get_db)):
     current_user = get_user_for_request(request, db)
     orders = db.query(Order).filter(Order.status != OrderStatus.DRAFT.value).order_by(Order.shipment_date.asc()).all()
+    products = db.query(Product).all()
+    max_prod_date = date.today() + timedelta(days=20)
     return templates.TemplateResponse(request=request, name="labeling/dashboard.html", context={
         "role": "labeling",
         "current_user": current_user,
         "orders": orders,
-        "today": date.today()
+        "products": products,
+        "today": date.today(),
+        "max_prod_date": max_prod_date
     })
+
+@labeling_router.post("/order/create")
+async def create_labeling_order(
+    order_number: str = Form(...),
+    product_id: int = Form(...),
+    quantity: int = Form(...),
+    shipment_date: str = Form(...),
+    production_date: Optional[str] = Form(None),
+    notes: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    order_created_date = date.today()
+    parsed_shipment_date = datetime.strptime(shipment_date, "%Y-%m-%d").date()
+    parsed_production_date = datetime.strptime(production_date, "%Y-%m-%d").date() if production_date else None
+
+    # Validate production_date <= order_date + 20 days
+    if parsed_production_date:
+        max_allowed_date = order_created_date + timedelta(days=20)
+        if parsed_production_date > max_allowed_date:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Заказ кода можно делать максимум за 20 дней до ожидаемой даты производства. Дата заказа: {order_created_date.strftime('%d.%m.%Y')}. Выбранная дата производства: {parsed_production_date.strftime('%d.%m.%Y')}, допустимо не позднее {max_allowed_date.strftime('%d.%m.%Y')}."
+            )
+
+    new_order = Order(
+        order_number=order_number,
+        product_id=product_id,
+        quantity=quantity,
+        shipment_date=parsed_shipment_date,
+        production_date=parsed_production_date,
+        notes=notes,
+        status=OrderStatus.SENT_TO_LABELING.value
+    )
+    db.add(new_order)
+    db.commit()
+    logger.info("Labeling created order #%s", order_number)
+    return RedirectResponse(url="/labeling", status_code=303)
 
 @labeling_router.post("/product/{product_id}/update-name")
 async def update_labeling_name(product_id: int, labeling_name: str = Form(...), db: Session = Depends(get_db)):
