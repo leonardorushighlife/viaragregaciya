@@ -187,30 +187,68 @@ async def facade_dashboard(request: Request, db: Session = Depends(get_db)):
         "is_after_12": is_after_12
     })
 
+from app.models.models import Order, Product, Task, Notification, Report, OrderStatus, OperatorSession, User, OrderItem
+
 @facade_router.post("/order/create")
 async def create_order(
+    request: Request,
     order_number: str = Form(...),
-    product_id: int = Form(...),
-    quantity: int = Form(...),
-    shipment_date: str = Form(...),
-    production_date: Optional[str] = Form(None),
     urgency_reason: Optional[str] = Form(""),
     notes: str = Form(""),
     send_email_notification: bool = Form(False),
     db: Session = Depends(get_db)
 ):
-    order_created_date = date.today()
-    parsed_shipment_date = datetime.strptime(shipment_date, "%Y-%m-%d").date()
-    parsed_production_date = datetime.strptime(production_date, "%Y-%m-%d").date() if production_date else None
+    form_data = await request.form()
+    item_product_ids = form_data.getlist("item_product_id")
+    item_quantities = form_data.getlist("item_quantity")
+    item_shipment_dates = form_data.getlist("item_shipment_date")
+    item_production_dates = form_data.getlist("item_production_date")
 
-    # Validate production_date <= order_date + 20 days
-    if parsed_production_date:
-        max_allowed_date = order_created_date + timedelta(days=20)
-        if parsed_production_date > max_allowed_date:
+    # Fallback to single product fields if form submitted without list fields
+    if not item_product_ids:
+        product_id = form_data.get("product_id")
+        quantity = form_data.get("quantity")
+        shipment_date = form_data.get("shipment_date")
+        production_date = form_data.get("production_date")
+        if product_id:
+            item_product_ids = [product_id]
+            item_quantities = [quantity]
+            item_shipment_dates = [shipment_date]
+            item_production_dates = [production_date]
+
+    if not item_product_ids:
+        raise HTTPException(status_code=400, detail="В заказе должен быть указан хотя бы один товар.")
+
+    order_created_date = date.today()
+    max_allowed_date = order_created_date + timedelta(days=20)
+
+    parsed_items = []
+    total_qty = 0
+    earliest_shipment_date = None
+    first_product_id = int(item_product_ids[0])
+
+    for i in range(len(item_product_ids)):
+        pid = int(item_product_ids[i])
+        qty = int(item_quantities[i])
+        s_date = datetime.strptime(item_shipment_dates[i], "%Y-%m-%d").date()
+        p_date = datetime.strptime(item_production_dates[i], "%Y-%m-%d").date() if item_production_dates[i] else None
+
+        if p_date and p_date > max_allowed_date:
             raise HTTPException(
                 status_code=400,
-                detail=f"Заказ кода можно делать максимум за 20 дней до ожидаемой даты производства. Дата заказа: {order_created_date.strftime('%d.%m.%Y')}. Выбранная дата производства: {parsed_production_date.strftime('%d.%m.%Y')}, допустимо не позднее {max_allowed_date.strftime('%d.%m.%Y')}."
+                detail=f"Заказ кода можно делать максимум за 20 дней до ожидаемой даты производства. Позиция #{i+1}: дата производства {p_date.strftime('%d.%m.%Y')}, допустимо не позднее {max_allowed_date.strftime('%d.%m.%Y')}."
             )
+
+        total_qty += qty
+        if earliest_shipment_date is None or s_date < earliest_shipment_date:
+            earliest_shipment_date = s_date
+
+        parsed_items.append({
+            "product_id": pid,
+            "quantity": qty,
+            "shipment_date": s_date,
+            "production_date": p_date
+        })
 
     # Check if order created after 12:00
     if datetime.now().hour >= 12 and not urgency_reason:
@@ -218,21 +256,34 @@ async def create_order(
 
     new_order = Order(
         order_number=order_number,
-        product_id=product_id,
-        quantity=quantity,
-        shipment_date=parsed_shipment_date,
-        production_date=parsed_production_date,
+        product_id=first_product_id,
+        quantity=total_qty,
+        shipment_date=earliest_shipment_date,
+        production_date=parsed_items[0]["production_date"],
         urgency_reason=urgency_reason,
         notes=notes,
         status=OrderStatus.DRAFT.value
     )
     db.add(new_order)
     db.commit()
+    db.refresh(new_order)
+
+    for item_data in parsed_items:
+        order_item = OrderItem(
+            order_id=new_order.id,
+            product_id=item_data["product_id"],
+            quantity=item_data["quantity"],
+            shipment_date=item_data["shipment_date"],
+            production_date=item_data["production_date"]
+        )
+        db.add(order_item)
+
+    db.commit()
 
     if send_email_notification:
         await send_email(
             subject=f"Новый заказ на фасовку #{order_number}",
-            body=f"Создан новый заказ #{order_number}. Кол-во: {quantity}. Дата отгрузки: {shipment_date}. Срочность: {urgency_reason or 'Нет'}.",
+            body=f"Создан новый многопозиционный заказ #{order_number}. Позиций: {len(parsed_items)}, общее кол-во: {total_qty}. Срочность: {urgency_reason or 'Нет'}.",
             recipient="labeling@malvik.ru"
         )
 

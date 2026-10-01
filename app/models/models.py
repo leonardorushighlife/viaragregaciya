@@ -47,14 +47,29 @@ class Product(Base):
 
     orders = relationship("Order", back_populates="product")
 
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    shipment_date = Column(Date, nullable=False)
+    production_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    order = relationship("Order", back_populates="items")
+    product = relationship("Product")
+
 class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
     order_number = Column(String(50), unique=True, index=True, nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Integer, nullable=False)
-    shipment_date = Column(Date, nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    quantity = Column(Integer, default=0, nullable=False)
+    shipment_date = Column(Date, nullable=True)
     production_date = Column(Date, nullable=True)        # Дата производства
     urgency_reason = Column(Text, nullable=True)         # Основание для срочности (если заказ после 12:00)
     status = Column(String(50), default=OrderStatus.DRAFT.value)
@@ -65,9 +80,16 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     product = relationship("Product", back_populates="orders")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="order", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="order", cascade="all, delete-orphan")
     sessions = relationship("OperatorSession", back_populates="order", cascade="all, delete-orphan")
+
+    @property
+    def total_quantity(self) -> int:
+        if self.items:
+            return sum(i.quantity for i in self.items)
+        return self.quantity or 0
 
     @property
     def total_applied(self) -> int:
