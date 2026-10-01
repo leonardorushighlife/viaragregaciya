@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+
+{% block title %}Фасад / Менеджер фасовки - MALVIK-LABEL{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-box-seam me-2"></i>Панель Менеджера Фасовки (Фасад)</h2>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importExcelModal">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Загрузить базу товаров (Excel)
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createOrderModal">
+                    <i class="bi bi-plus-lg me-1"></i> Создать заказ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">
+        <i class="bi bi-list-task me-2"></i>Список заказов на фасовку
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№ Заказа</th>
+                        <th>Продукция</th>
+                        <th>Имя (Фасад)</th>
+                        <th>Количество</th>
+                        <th>Остаток</th>
+                        <th>Брак</th>
+                        <th>Дата отгрузки</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td class="fw-bold">#{{ order.order_number }}</td>
+                        <td>{{ order.product.official_name }}</td>
+                        <td>
+                            <form action="/facade/product/{{ order.product.id }}/update-name" method="POST" class="d-flex">
+                                <input type="text" name="facade_name" class="form-control form-control-sm me-1" value="{{ order.product.facade_name or '' }}" placeholder="Внутреннее имя">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Сохранить имя"><i class="bi bi-check"></i></button>
+                            </form>
+                        </td>
+                        <td>{{ order.quantity }} шт.</td>
+                        <td class="fw-bold text-primary">{{ order.remaining_codes }} шт.</td>
+                        <td>
+                            <form action="/facade/order/{{ order.id }}/defect" method="POST" class="d-flex align-items-center" style="max-width: 130px;">
+                                <input type="number" name="defect_qty" class="form-control form-control-sm me-1" value="{{ order.defect_qty }}" min="0" required>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Сохранить брак"><i class="bi bi-save"></i></button>
+                            </form>
+                        </td>
+                        <td>
+                            <span class="badge {% if (order.shipment_date - today).days <= 2 %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ order.shipment_date.strftime('%d.%m.%Y') }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if order.status == 'DRAFT' %}
+                                <span class="badge bg-secondary">Черновик</span>
+                            {% elif order.status == 'SENT_TO_LABELING' %}
+                                <span class="badge bg-info text-dark">Передан в маркировку</span>
+                            {% elif order.status == 'CODES_REQUESTED' %}
+                                <span class="badge bg-warning text-dark">Коды запрошены</span>
+                            {% elif order.status == 'CODES_PRINTED' %}
+                                <span class="badge bg-primary">Коды напечатаны</span>
+                            {% elif order.status == 'IN_PACKAGING' %}
+                                <span class="badge bg-info">В процессе фасовки</span>
+                            {% elif order.status == 'PACKAGED' %}
+                                <span class="badge bg-success">Упаковано</span>
+                            {% elif order.status == 'SENT_TO_WAREHOUSE' %}
+                                <span class="badge bg-warning text-dark">Передан на склад</span>
+                            {% elif order.status == 'ACCEPTED_AT_WAREHOUSE' %}
+                                <span class="badge bg-success"><i class="bi bi-house-check me-1"></i>Принят на склад</span>
+                            {% elif order.status == 'COMPLETED' %}
+                                <span class="badge bg-dark">Завершен</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.status == 'DRAFT' %}
+                            <form action="/facade/order/{{ order.id }}/send-to-labeling" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-send me-1"></i> В маркировку
+                                </button>
+                            </form>
+                            {% elif order.status in ['PACKAGED', 'COMPLETED'] %}
+                            <form action="/facade/order/{{ order.id }}/send-to-warehouse" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold">
+                                    <i class="bi bi-truck me-1"></i> Отправить на склад ({{ order.total_applied }} шт)
+                                </button>
+                            </form>
+                            {% elif order.status == 'SENT_TO_WAREHOUSE' %}
+                            <span class="badge bg-secondary"><i class="bi bi-check2-circle me-1"></i>Передан на склад</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">Заказы пока не созданы</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Create Order -->
+<div class="modal fade" id="createOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="/facade/order/create" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Новый заказ на фасовку и коды</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Urgency & Production Date Rules Notice -->
+                    <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-warning"></i>
+                        <div>
+                            <div><strong>Правило приема заказов:</strong> Заказы принимаются до <strong>12:00</strong>. При оформлении заказа после 12:00 необходимо указать основание для срочности.</div>
+                            <div class="mt-1"><strong>Ограничение по дате производства:</strong> Заказ кода можно делать максимум за <strong>20 дней</strong> до ожидаемой даты производства.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Номер заказа</label>
+                        <input type="text" name="order_number" class="form-control" required placeholder="Например: ORD-2026-001">
+                    </div>
+
+                    <!-- Dynamic Product Items Container -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold mb-0"><i class="bi bi-box-seam me-1"></i>Товары в заказе (позиции)</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addOrderItemRow()">
+                                <i class="bi bi-plus-circle me-1"></i> Добавить еще товар
+                            </button>
+                        </div>
+
+                        <div id="orderItemsContainer">
+                            <!-- Row 1 -->
+                            <div class="card bg-light border p-3 mb-2 order-item-row">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-primary small">Позиция #1</span>
+                                    <button type="button" class="btn-close btn-sm remove-item-btn" onclick="removeOrderItemRow(this)" style="display:none;"></button>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-12 mb-2">
+                                        <label class="form-label small fw-bold">Продукция</label>
+                                        <select name="item_product_id" class="form-select form-select-sm" required>
+                                            {% for p in products %}
+                                            <option value="{{ p.id }}">{{ p.official_name }} (GTIN: {{ p.gtin or 'Н/Д' }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Кол-во (шт)</label>
+                                        <input type="number" name="item_quantity" class="form-control form-control-sm" required min="1" value="100">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Дата отгрузки</label>
+                                        <input type="date" name="item_shipment_date" class="form-control form-control-sm" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Дата производства</label>
+                                        <input type="date" name="item_production_date" class="form-control form-control-sm" value="{{ today.strftime('%Y-%m-%d') }}" max="{{ max_prod_date.strftime('%Y-%m-%d') }}" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if is_after_12 %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-danger"><i class="bi bi-exclamation-circle me-1"></i>Основание срочности (после 12:00):</label>
+                        <input type="text" name="urgency_reason" class="form-control border-danger" required placeholder="Укажите причину срочного заказа">
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Основание срочности (опционально):</label>
+                        <input type="text" name="urgency_reason" class="form-control" placeholder="Заполняется если требуется срочная обработка">
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label">Примечания</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="send_email_notification" id="sendEmail">
+                        <label class="form-check-label" for="sendEmail">
+                            Отправить уведомление по Email в отдел маркировки
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать заказ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Excel Products -->
+<div class="modal fade" id="importExcelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/facade/products/import-excel" method="POST" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-excel me-2"></i>Загрузка базы товаров из Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Выберите файл Excel (.xlsx) со списком продукции. Файл должен содержать столбцы: <strong>Наименование продукции, GTIN / Штрихкод</strong>.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Файл Excel (.xlsx)</label>
+                        <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-upload me-1"></i> Загрузить товары</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function addOrderItemRow() {
+        const container = document.getElementById('orderItemsContainer');
+        const rows = container.getElementsByClassName('order-item-row');
+        const nextIndex = rows.length + 1;
+
+        const firstRow = rows[0];
+        const newRow = firstRow.cloneNode(true);
+
+        newRow.querySelector('.fw-bold.text-primary.small').innerText = `Позиция #${nextIndex}`;
+        const closeBtn = newRow.querySelector('.remove-item-btn');
+        closeBtn.style.display = 'block';
+
+        container.appendChild(newRow);
+        updateRemoveButtons();
+    }
+
+    function removeOrderItemRow(btn) {
+        const container = document.getElementById('orderItemsContainer');
+        const rows = container.getElementsByClassName('order-item-row');
+        if (rows.length > 1) {
+            btn.closest('.order-item-row').remove();
+            updateRemoveButtons();
+        }
+    }
+
+    function updateRemoveButtons() {
+        const container = document.getElementById('orderItemsContainer');
+        const rows = container.getElementsByClassName('order-item-row');
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].querySelector('.fw-bold.text-primary.small').innerText = `Позиция #${i + 1}`;
+            const btn = rows[i].querySelector('.remove-item-btn');
+            btn.style.display = rows.length > 1 ? 'block' : 'none';
+        }
+    }
+</script>
+{% endblock %}

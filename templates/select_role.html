@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выбор роли - MALVIK-LABEL</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .role-card {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .role-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15) !important;
+        }
+    </style>
+</head>
+<body class="d-flex align-items-center min-vh-100 py-4">
+    <div class="container" style="max-width: 1100px;">
+        <div class="text-center mb-5">
+            <h1 class="fw-bold text-warning display-4 mb-2"><i class="bi bi-tags-fill me-3"></i>MALVIK-LABEL</h1>
+            <p class="text-secondary fs-4">Выберите вашу рабочую роль для начала работы</p>
+        </div>
+
+        {% if error_msg %}
+        <div class="alert alert-danger text-center fs-5 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_msg }}
+        </div>
+        {% endif %}
+
+        <div class="row g-4 justify-content-center">
+            <!-- Facade Role -->
+            <div class="col-md-6 col-lg-2">
+                <form action="/select-role" method="POST" class="h-100">
+                    <input type="hidden" name="role" value="facade">
+                    <button type="submit" class="btn text-start p-0 w-100 h-100 border-0 bg-transparent">
+                        <div class="card h-100 border-primary shadow-sm role-card">
+                            <div class="card-body text-center p-3">
+                                <i class="bi bi-box-seam display-4 text-primary mb-2"></i>
+                                <h5 class="fw-bold text-dark">Фасад</h5>
+                                <p class="text-muted small mb-0">Менеджер фасовки</p>
+                            </div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Labeling Role -->
+            <div class="col-md-6 col-lg-2">
+                <form action="/select-role" method="POST" class="h-100">
+                    <input type="hidden" name="role" value="labeling">
+                    <button type="submit" class="btn text-start p-0 w-100 h-100 border-0 bg-transparent">
+                        <div class="card h-100 border-warning shadow-sm role-card">
+                            <div class="card-body text-center p-3">
+                                <i class="bi bi-qr-code-scan display-4 text-warning mb-2"></i>
+                                <h5 class="fw-bold text-dark">Маркировка</h5>
+                                <p class="text-muted small mb-0">Отдел маркировки</p>
+                            </div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Warehouse Role -->
+            <div class="col-md-6 col-lg-2">
+                <form action="/select-role" method="POST" class="h-100">
+                    <input type="hidden" name="role" value="warehouse">
+                    <button type="submit" class="btn text-start p-0 w-100 h-100 border-0 bg-transparent">
+                        <div class="card h-100 border-info shadow-sm role-card">
+                            <div class="card-body text-center p-3">
+                                <i class="bi bi-house-door display-4 text-info mb-2"></i>
+                                <h5 class="fw-bold text-dark">Склад</h5>
+                                <p class="text-muted small mb-0">Приемка на склад</p>
+                            </div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Operator Role with Choice (op1, op2, op3) -->
+            <div class="col-md-6 col-lg-3">
+                <div class="card h-100 border-success shadow-sm role-card">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-person-workspace display-3 text-success mb-3"></i>
+                        <h4 class="fw-bold text-dark">Оператор</h4>
+                        <p class="text-muted small mb-3">Выберите рабочего оператора фасовки:</p>
+
+                        <form action="/select-role" method="POST" class="d-grid gap-2">
+                            <input type="hidden" name="role" value="operator">
+                            <button type="submit" name="operator_username" value="op1" class="btn btn-outline-success fw-bold">
+                                <i class="bi bi-person-fill me-1"></i>Оператор 1 (op1)
+                            </button>
+                            <button type="submit" name="operator_username" value="op2" class="btn btn-outline-success fw-bold">
+                                <i class="bi bi-person-fill me-1"></i>Оператор 2 (op2)
+                            </button>
+                            <button type="submit" name="operator_username" value="op3" class="btn btn-outline-success fw-bold">
+                                <i class="bi bi-person-fill me-1"></i>Оператор 3 (op3)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Role -->
+            <div class="col-md-6 col-lg-3">
+                <div class="card h-100 border-danger shadow-sm role-card">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-shield-lock-fill display-3 text-danger mb-3"></i>
+                        <h4 class="fw-bold text-dark">Админ</h4>
+                        <p class="text-muted small mb-2">Настройки системы</p>
+
+                        <button class="btn btn-danger w-100 fw-bold mt-2" data-bs-toggle="modal" data-bs-target="#adminPasswordModal">
+                            <i class="bi bi-key-fill me-1"></i>Вход
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Password Modal -->
+    <div class="modal fade" id="adminPasswordModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form action="/select-role" method="POST">
+                    <input type="hidden" name="role" value="admin">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title"><i class="bi bi-shield-lock-fill me-2"></i>Пароль Администратора</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Введите пароль администратора:</label>
+                            <input type="password" name="admin_password" class="form-control form-control-lg text-center fw-bold" placeholder="Пароль" required autofocus>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-danger">Войти как Admin</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

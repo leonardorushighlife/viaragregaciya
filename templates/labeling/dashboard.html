@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+
+{% block title %}Отдел Маркировки - MALVIK-LABEL{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-qr-code-scan me-2"></i>Панель Отдела Маркировки</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCodesOrderModal">
+                <i class="bi bi-plus-lg me-1"></i> Создать заказ на коды маркировки
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Warning Alerts for Urgent Orders -->
+{% for order in orders %}
+    {% if (order.shipment_date - today).days <= 2 and order.status != 'COMPLETED' %}
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+        <div>
+            <strong>Срочно! Заказ #{{ order.order_number }}</strong> — отгрузка {{ order.shipment_date.strftime('%d.%m.%Y') }} (осталось {{ (order.shipment_date - today).days }} дн.).
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">
+        <i class="bi bi-card-checklist me-2"></i>Заказы в отделе маркировки
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№ Заказа</th>
+                        <th>Официальное имя</th>
+                        <th>Имя (Маркировка)</th>
+                        <th>Кол-во</th>
+                        <th>Остаток</th>
+                        <th>Брак</th>
+                        <th>Обклейка начата</th>
+                        <th>Отгрузка</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td class="fw-bold">
+                            <a href="/labeling/order/{{ order.id }}" class="text-decoration-none fw-bold text-primary" title="Открыть состав заказа">
+                                #{{ order.order_number }}
+                                {% if order.items and order.items|length > 1 %}
+                                <span class="badge bg-secondary ms-1">{{ order.items|length }} поз.</span>
+                                {% endif %}
+                            </a>
+                        </td>
+                        <td>
+                            {% if order.items and order.items|length > 1 %}
+                                <span class="fw-bold text-dark">{{ order.items[0].product.official_name }}</span>
+                                <div class="small text-muted">+ еще {{ order.items|length - 1 }} наим. (всего {{ order.total_quantity }} шт)</div>
+                            {% else %}
+                                {{ order.product.official_name }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form action="/labeling/product/{{ order.product.id }}/update-name" method="POST" class="d-flex">
+                                <input type="text" name="labeling_name" class="form-control form-control-sm me-1" value="{{ order.product.labeling_name or '' }}" placeholder="Имя для маркировки">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Сохранить"><i class="bi bi-check"></i></button>
+                            </form>
+                        </td>
+                        <td>{{ order.quantity }} шт.</td>
+                        <td class="fw-bold text-primary">
+                            {{ order.remaining_codes }} шт.
+                        </td>
+                        <td>
+                            {% if order.defect_qty > 0 %}
+                            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ order.defect_qty }}</span>
+                            {% else %}
+                            <span class="text-secondary opacity-50"><i class="bi bi-exclamation-triangle me-1"></i>0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.actual_labeling_date %}
+                            <span class="badge bg-light text-dark border"><i class="bi bi-calendar-check me-1"></i>{{ order.actual_labeling_date.strftime('%d.%m.%Y') }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ order.shipment_date.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            <span class="badge
+                                {% if order.status == 'SENT_TO_LABELING' %}bg-warning text-dark
+                                {% elif order.status == 'CODES_REQUESTED' %}bg-info text-dark
+                                {% elif order.status == 'CODES_PRINTED' %}bg-primary
+                                {% elif order.status == 'IN_PACKAGING' %}bg-info
+                                {% elif order.status == 'PACKAGED' %}bg-success
+                                {% elif order.status == 'SENT_TO_WAREHOUSE' %}bg-warning text-dark
+                                {% elif order.status == 'ACCEPTED_AT_WAREHOUSE' %}bg-success
+                                {% elif order.status == 'COMPLETED' %}bg-dark
+                                {% endif %}">
+                                {% if order.status == 'ACCEPTED_AT_WAREHOUSE' %}Принят на склад{% else %}{{ order.status }}{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="/labeling/order/{{ order.id }}" class="btn btn-sm btn-outline-info me-1" title="Детали и GTIN товара">
+                                <i class="bi bi-eye-fill me-1"></i> Позиции
+                            </a>
+                            {% if order.status == 'SENT_TO_LABELING' %}
+                            <form action="/labeling/order/{{ order.id }}/request-codes" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-cloud-download me-1"></i> Запросить коды (ЧЗ)
+                                </button>
+                            </form>
+                            {% elif order.status == 'CODES_REQUESTED' %}
+                            <form action="/labeling/order/{{ order.id }}/mark-printed" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-printer me-1"></i> Коды напечатаны
+                                </button>
+                            </form>
+                            {% elif order.status in ['PACKAGED', 'IN_PACKAGING'] %}
+                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#reportModal{{ order.id }}">
+                                <i class="bi bi-file-earmark-check me-1"></i> Сдать отчет
+                            </button>
+
+                            <!-- Report Modal -->
+                            <div class="modal fade" id="reportModal{{ order.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form action="/labeling/order/{{ order.id }}/submit-report" method="POST">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Финальный отчет по заказу #{{ order.order_number }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Изготовлено продукции (шт)</label>
+                                                    <input type="number" name="total_produced" class="form-control" value="{{ order.total_applied or order.quantity }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Использовано этикеток (кодов)</label>
+                                                    <input type="number" name="stickers_used" class="form-control" value="{{ order.total_applied or order.quantity }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Испорчено/брак этикеток</label>
+                                                    <input type="number" name="stickers_wasted" class="form-control" value="{{ order.defect_qty }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Комментарии</label>
+                                                    <textarea name="comments" class="form-control" rows="2"></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <button type="submit" class="btn btn-success">Подтвердить и закрыть заказ</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">Заказов в отделе маркировки нет</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Create Codes Order (Labeling Department) -->
+<div class="modal fade" id="createCodesOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="/labeling/order/create" method="POST">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-qr-code-scan me-2"></i>Новый заказ на коды маркировки</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Production Date Limit Alert -->
+                    <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-warning"></i>
+                        <div>
+                            <strong>Ограничение по дате производства:</strong> Заказ кода можно делать максимум за <strong>20 дней</strong> до ожидаемой даты производства.
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Номер заказа</label>
+                            <input type="text" name="order_number" class="form-control" required placeholder="Например: ORD-LAB-2026-001">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Количество кодов (шт)</label>
+                            <input type="number" name="quantity" class="form-control" required min="1" value="100">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Продукция</label>
+                        <select name="product_id" class="form-select" required>
+                            {% for p in products %}
+                            <option value="{{ p.id }}">{{ p.official_name }} (GTIN: {{ p.gtin or 'Н/Д' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Планируемая дата отгрузки</label>
+                            <input type="date" name="shipment_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Ожидаемая дата производства</label>
+                            <input type="date" name="production_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}" max="{{ max_prod_date.strftime('%Y-%m-%d') }}" required>
+                            <div class="form-text text-muted">Максимально до {{ max_prod_date.strftime('%d.%m.%Y') }} (+20 дней)</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Примечания / Описание</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Дополнительная информация к заказу кодов"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-1"></i> Сформировать заказ на коды</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

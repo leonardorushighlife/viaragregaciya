@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Сводка "Сегодня" - MALVIK-LABEL{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-calendar-event me-2 text-primary"></i>Сводка за сегодня ({{ today_date.strftime('%d.%m.%Y') }})</h2>
+        </div>
+    </div>
+</div>
+
+<!-- Header Banner (Общая плашка) -->
+<div class="card bg-primary text-white shadow-sm mb-4">
+    <div class="card-body p-4 text-center">
+        <h4 class="text-uppercase tracking-wide opacity-75 mb-2">Сегодня обклеено</h4>
+        <div class="display-3 fw-bold my-2">
+            {{ applied_today }} <span class="fs-2 opacity-75">/ {{ target_qty_today }} шт.</span>
+        </div>
+        <div class="fs-5">
+            <span class="badge bg-warning text-dark me-2">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>Брак: {{ defect_qty_today }} шт. ({{ defect_percent }}%)
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Role-Tailored Tabs or Sections -->
+<div class="row g-4 mb-4">
+    <!-- Operator Summary -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-2 border-info">
+            <div class="card-header bg-info text-white fw-bold">
+                <i class="bi bi-person-badge me-2"></i>Сводка оператора ({{ current_user.username }})
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="text-muted d-block">Наклеено сегодня:</span>
+                    <span class="fs-2 fw-bold text-success">{{ my_applied_today }} шт.</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-muted d-block">Общее время работы:</span>
+                    <span class="fs-4 fw-bold text-dark">
+                        {{ (my_time_seconds // 3600)|int }} ч {{ ((my_time_seconds % 3600) // 60)|int }} мин
+                    </span>
+                </div>
+                <div>
+                    <span class="text-muted d-block">Моих сессий за сегодня:</span>
+                    <span class="fs-5 fw-bold">{{ my_sessions_today|length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Labeling Summary -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-2 border-warning">
+            <div class="card-header bg-warning text-dark fw-bold">
+                <i class="bi bi-qr-code-scan me-2"></i>Сводка Отдела Маркировки
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="text-muted d-block">Заказов в работе/начатых сегодня:</span>
+                    <span class="fs-3 fw-bold text-dark">{{ orders_today|length }}</span>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for o in orders_today[:5] %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <strong>#{{ o.order_number }}</strong>
+                            <div class="small text-muted">{{ o.product.official_name }}</div>
+                        </div>
+                        <span class="badge bg-secondary">Остаток: {{ o.remaining_codes }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Facade Summary -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-2 border-primary">
+            <div class="card-header bg-primary text-white fw-bold">
+                <i class="bi bi-box-seam me-2"></i>Сводка Менеджера Фасада
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="text-muted d-block">Заказов сегодня:</span>
+                    <span class="fs-3 fw-bold text-primary">{{ orders_today|length }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-muted d-block">Всего брака зафиксировано:</span>
+                    <span class="fs-4 fw-bold text-danger">{{ defect_qty_today }} шт.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Orders Table for Today -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-bold">
+        <i class="bi bi-list-check me-2"></i>Детализация заказов за сегодня
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№ Заказа</th>
+                        <th>Продукция</th>
+                        <th>Цель</th>
+                        <th>Наклеено</th>
+                        <th>Остаток</th>
+                        <th>Брак</th>
+                        <th>Дата начала обклейки</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders_today %}
+                    <tr>
+                        <td class="fw-bold">#{{ o.order_number }}</td>
+                        <td>{{ o.product.official_name }}</td>
+                        <td>{{ o.quantity }} шт.</td>
+                        <td class="fw-bold text-success">{{ o.total_applied }} шт.</td>
+                        <td class="fw-bold text-warning">{{ o.remaining_codes }} шт.</td>
+                        <td>
+                            {% if o.defect_qty > 0 %}
+                            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ o.defect_qty }}</span>
+                            {% else %}
+                            <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ o.actual_labeling_date.strftime('%d.%m.%Y') if o.actual_labeling_date else '—' }}</td>
+                        <td><span class="badge bg-secondary">{{ o.status }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">Сегодня движений по заказам не зафиксировано</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
