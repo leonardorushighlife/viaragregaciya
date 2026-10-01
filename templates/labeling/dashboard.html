@@ -50,8 +50,22 @@
                 <tbody>
                     {% for order in orders %}
                     <tr>
-                        <td class="fw-bold">#{{ order.order_number }}</td>
-                        <td>{{ order.product.official_name }}</td>
+                        <td class="fw-bold">
+                            <a href="/labeling/order/{{ order.id }}" class="text-decoration-none fw-bold text-primary" title="Открыть состав заказа">
+                                #{{ order.order_number }}
+                                {% if order.items and order.items|length > 1 %}
+                                <span class="badge bg-secondary ms-1">{{ order.items|length }} поз.</span>
+                                {% endif %}
+                            </a>
+                        </td>
+                        <td>
+                            {% if order.items and order.items|length > 1 %}
+                                <span class="fw-bold text-dark">{{ order.items[0].product.official_name }}</span>
+                                <div class="small text-muted">+ еще {{ order.items|length - 1 }} наим. (всего {{ order.total_quantity }} шт)</div>
+                            {% else %}
+                                {{ order.product.official_name }}
+                            {% endif %}
+                        </td>
                         <td>
                             <form action="/labeling/product/{{ order.product.id }}/update-name" method="POST" class="d-flex">
                                 <input type="text" name="labeling_name" class="form-control form-control-sm me-1" value="{{ order.product.labeling_name or '' }}" placeholder="Имя для маркировки">
@@ -90,6 +104,9 @@
                             </span>
                         </td>
                         <td>
+                            <a href="/labeling/order/{{ order.id }}" class="btn btn-sm btn-outline-info me-1" title="Детали и GTIN товара">
+                                <i class="bi bi-eye-fill me-1"></i> Позиции
+                            </a>
                             {% if order.status == 'SENT_TO_LABELING' %}
                             <form action="/labeling/order/{{ order.id }}/request-codes" method="POST" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-outline-primary">

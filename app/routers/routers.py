@@ -383,6 +383,20 @@ async def labeling_dashboard(request: Request, db: Session = Depends(get_db)):
         "max_prod_date": max_prod_date
     })
 
+@labeling_router.get("/order/{order_id}", response_class=HTMLResponse)
+async def labeling_order_detail(order_id: int, request: Request, db: Session = Depends(get_db)):
+    current_user = get_user_for_request(request, db)
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return templates.TemplateResponse(request=request, name="labeling/order_detail.html", context={
+        "role": "labeling",
+        "current_user": current_user,
+        "order": order,
+        "today": date.today()
+    })
+
 @labeling_router.post("/order/create")
 async def create_labeling_order(
     order_number: str = Form(...),
