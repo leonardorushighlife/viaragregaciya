@@ -27,9 +27,11 @@
         <!-- Product Details -->
         <div class="row mb-3">
             <div class="col-12 text-center">
-                <h3 class="text-info fw-bold mb-1">{{ session.order.product.official_name }}</h3>
+                <h3 class="text-info fw-bold mb-1">
+                    {{ session.task.target_product.official_name if session.task and session.task.target_product else session.order.product.official_name }}
+                </h3>
                 <div class="fs-5 text-secondary">
-                    План заказа: <strong>{{ session.order.quantity }}</strong> шт.
+                    План позиции: <strong>{{ session.task.quantity_target if session.task else session.order.quantity }}</strong> шт.
                     {% if session.order.actual_labeling_date %}
                     | Начато: <strong>{{ session.order.actual_labeling_date.strftime('%d.%m.%Y') }}</strong>
                     {% endif %}
@@ -62,17 +64,17 @@
             </div>
         </div>
 
-        <!-- Block: Progress & Remaining Codes (Остаток кодов) -->
+        <!-- Block: Progress & Remaining Codes (Остаток кодов по позиции) -->
         <div class="card bg-secondary text-white border-0 shadow mb-4">
             <div class="card-body">
                 <div class="row align-items-center text-center">
                     <div class="col-md-4 border-end border-dark py-2">
-                        <div class="text-uppercase text-light small">Остаток кодов</div>
-                        <div class="display-3 fw-bold text-warning" id="remaining-codes-display">{{ session.order.remaining_codes }}</div>
+                        <div class="text-uppercase text-light small">Остаток по позиции</div>
+                        <div class="display-3 fw-bold text-warning" id="remaining-codes-display">{{ session.task.remaining_codes if session.task else session.order.remaining_codes }}</div>
                     </div>
                     <div class="col-md-4 border-end border-dark py-2">
-                        <div class="text-uppercase text-light small">Наклеено всего</div>
-                        <div class="display-4 fw-bold text-success">{{ session.order.total_applied }} / {{ session.order.quantity }}</div>
+                        <div class="text-uppercase text-light small">Наклеено всего по позиции</div>
+                        <div class="display-4 fw-bold text-success">{{ session.task.total_applied if session.task else session.order.total_applied }} / {{ session.task.quantity_target if session.task else session.order.quantity }} шт.</div>
                     </div>
                     <div class="col-md-4 py-2">
                         <div class="text-uppercase text-light small">Брак (отдел)</div>
@@ -81,8 +83,8 @@
                 </div>
                 <div class="progress bg-dark mt-3" style="height: 18px;">
                     <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated fs-6 fw-bold text-dark" role="progressbar"
-                         style="width: {{ (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0)|round }}%;">
-                        {{ (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0)|round }}%
+                         style="width: {{ (session.task.total_applied / session.task.quantity_target * 100 if session.task and session.task.quantity_target else (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0))|round }}%;">
+                        {{ (session.task.total_applied / session.task.quantity_target * 100 if session.task and session.task.quantity_target else (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0))|round }}%
                     </div>
                 </div>
             </div>

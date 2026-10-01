@@ -125,6 +125,7 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    order_item_id = Column(Integer, ForeignKey("order_items.id"), nullable=True)
     quantity_target = Column(Integer, nullable=False)
     status = Column(String(50), default="pending")  # pending / in_progress / completed
     actual_started_at = Column(DateTime, nullable=True)
@@ -132,30 +133,43 @@ class Task(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     order = relationship("Order", back_populates="tasks")
+    item = relationship("OrderItem")
+    sessions = relationship("OperatorSession", back_populates="task", cascade="all, delete-orphan")
+
+    @property
+    def target_product(self):
+        if self.item and self.item.product:
+            return self.item.product
+        elif self.order:
+            return self.order.product
+        return None
 
     @property
     def total_applied(self) -> int:
-        if not self.order or not self.order.sessions:
-            return 0
-        return sum(s.applied_qty for s in self.order.sessions)
+        if self.sessions:
+            return sum(s.applied_qty for s in self.sessions)
+        if self.order and not self.order_item_id and self.order.sessions:
+            return sum(s.applied_qty for s in self.order.sessions)
+        return 0
 
     @property
     def remaining_codes(self) -> int:
-        if not self.order:
-            return 0
-        return self.order.remaining_codes
+        return max(0, self.quantity_target - self.total_applied)
 
     @property
     def operators_count(self) -> int:
-        if not self.order or not self.order.sessions:
-            return 0
-        return len({s.operator_id for s in self.order.sessions})
+        if self.sessions:
+            return len({s.operator_id for s in self.sessions})
+        if self.order and not self.order_item_id and self.order.sessions:
+            return len({s.operator_id for s in self.order.sessions})
+        return 0
 
 class OperatorSession(Base):
     __tablename__ = "operator_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
     operator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     applied_qty = Column(Integer, default=0)
     started_at = Column(DateTime, default=datetime.utcnow)
@@ -164,6 +178,7 @@ class OperatorSession(Base):
     status = Column(String(20), default="running")  # running / paused / completed
 
     order = relationship("Order", back_populates="sessions")
+    task = relationship("Task", back_populates="sessions")
     operator = relationship("User", back_populates="sessions")
 
     @property

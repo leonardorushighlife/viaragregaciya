@@ -51,17 +51,18 @@
                                             {{ session.status }}
                                         </span>
                                     </div>
-                                    <p class="text-muted mb-2 fs-5">
-                                        {{ session.order.product.official_name }}
+                                    <p class="text-dark fw-bold mb-2 fs-5">
+                                        <i class="bi bi-box-seam me-1 text-primary"></i>
+                                        {{ session.task.target_product.official_name if session.task and session.task.target_product else session.order.product.official_name }}
                                     </p>
                                     <div class="mb-3">
                                         <div class="d-flex justify-content-between mb-1 fw-bold">
-                                            <span>Общий прогресс:</span>
-                                            <span>{{ session.order.total_applied }} / {{ session.order.quantity }} шт.</span>
+                                            <span>Прогресс позиции:</span>
+                                            <span>{{ session.task.total_applied if session.task else session.order.total_applied }} / {{ session.task.quantity_target if session.task else session.order.quantity }} шт.</span>
                                         </div>
                                         <div class="progress" style="height: 12px;">
                                             <div class="progress-bar bg-primary" role="progressbar"
-                                                 style="width: {{ (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0)|round }}%;"></div>
+                                                 style="width: {{ (session.task.total_applied / session.task.quantity_target * 100 if session.task and session.task.quantity_target else (session.order.total_applied / session.order.quantity * 100 if session.order.quantity else 0))|round }}%;"></div>
                                         </div>
                                     </div>
                                     <div class="p-2 bg-light rounded text-center border mb-3">
@@ -102,22 +103,23 @@
                                             {% if task.status == 'pending' %}Ожидает{% else %}В процессе{% endif %}
                                         </span>
                                     </div>
-                                    <p class="text-muted mb-2 fs-5">
-                                        {{ task.order.product.official_name }}
+                                    <p class="text-dark fw-bold mb-2 fs-5">
+                                        <i class="bi bi-box-seam me-1 text-primary"></i>
+                                        {{ task.target_product.official_name if task.target_product else task.order.product.official_name }}
                                     </p>
                                     <div class="d-flex align-items-center text-muted mb-2">
                                         <i class="bi bi-people-fill me-2 text-primary fs-5"></i>
-                                        <span>Операторов на заказе: <strong>{{ task.order.operators_count }}</strong></span>
+                                        <span>Операторов на позиции: <strong>{{ task.operators_count }}</strong></span>
                                     </div>
 
                                     <div class="mb-3">
                                         <div class="d-flex justify-content-between mb-1 fw-bold">
-                                            <span>Прогресс:</span>
-                                            <span>{{ task.order.total_applied }} / {{ task.quantity_target }} шт.</span>
+                                            <span>Прогресс позиции:</span>
+                                            <span>{{ task.total_applied }} / {{ task.quantity_target }} шт.</span>
                                         </div>
                                         <div class="progress" style="height: 12px;">
                                             <div class="progress-bar bg-warning" role="progressbar"
-                                                 style="width: {{ (task.order.total_applied / task.quantity_target * 100 if task.quantity_target else 0)|round }}%;"></div>
+                                                 style="width: {{ (task.total_applied / task.quantity_target * 100 if task.quantity_target else 0)|round }}%;"></div>
                                         </div>
                                     </div>
                                 </div>

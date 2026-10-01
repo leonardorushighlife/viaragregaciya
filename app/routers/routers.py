@@ -474,14 +474,24 @@ async def mark_printed(order_id: int, db: Session = Depends(get_db)):
     order = db.get(Order, order_id)
     if order:
         order.status = OrderStatus.CODES_PRINTED.value
-        existing_task = db.query(Task).filter(Task.order_id == order.id).first()
-        if not existing_task:
-            new_task = Task(
-                order_id=order.id,
-                quantity_target=order.quantity,
-                status="pending"
-            )
-            db.add(new_task)
+        existing_tasks = db.query(Task).filter(Task.order_id == order.id).all()
+        if not existing_tasks:
+            if order.items:
+                for item in order.items:
+                    new_task = Task(
+                        order_id=order.id,
+                        order_item_id=item.id,
+                        quantity_target=item.quantity,
+                        status="pending"
+                    )
+                    db.add(new_task)
+            else:
+                new_task = Task(
+                    order_id=order.id,
+                    quantity_target=order.quantity,
+                    status="pending"
+                )
+                db.add(new_task)
         db.commit()
     return RedirectResponse(url="/labeling", status_code=303)
 
@@ -575,12 +585,12 @@ async def start_task(task_id: int, request: Request, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.remaining_codes == 0:
-        raise HTTPException(status_code=400, detail="Заказ уже выполнен, остаток кодов = 0")
+        raise HTTPException(status_code=400, detail="Задание уже выполнено, остаток кодов = 0")
 
     check_single_active_session(current_user.id, task_id, db)
 
     existing_session = db.query(OperatorSession).filter(
-        OperatorSession.order_id == task.order_id,
+        OperatorSession.task_id == task.id,
         OperatorSession.operator_id == current_user.id,
         OperatorSession.status == "running"
     ).first()
@@ -588,6 +598,7 @@ async def start_task(task_id: int, request: Request, db: Session = Depends(get_d
     if not existing_session:
         session = OperatorSession(
             order_id=task.order_id,
+            task_id=task.id,
             operator_id=current_user.id,
             applied_qty=0,
             status="running",
@@ -618,12 +629,12 @@ async def continue_task(task_id: int, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.remaining_codes == 0:
-        raise HTTPException(status_code=400, detail="Заказ уже выполнен, остаток кодов = 0")
+        raise HTTPException(status_code=400, detail="Задание уже выполнено, остаток кодов = 0")
 
     check_single_active_session(current_user.id, task_id, db)
 
     existing_session = db.query(OperatorSession).filter(
-        OperatorSession.order_id == task.order_id,
+        OperatorSession.task_id == task.id,
         OperatorSession.operator_id == current_user.id,
         OperatorSession.status == "running"
     ).first()
@@ -631,6 +642,7 @@ async def continue_task(task_id: int, request: Request, db: Session = Depends(ge
     if not existing_session:
         session = OperatorSession(
             order_id=task.order_id,
+            task_id=task.id,
             operator_id=current_user.id,
             applied_qty=0,
             status="running",
