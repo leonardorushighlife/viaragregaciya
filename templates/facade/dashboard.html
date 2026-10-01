@@ -76,6 +76,10 @@
                                 <span class="badge bg-info">В процессе фасовки</span>
                             {% elif order.status == 'PACKAGED' %}
                                 <span class="badge bg-success">Упаковано</span>
+                            {% elif order.status == 'SENT_TO_WAREHOUSE' %}
+                                <span class="badge bg-warning text-dark">Передан на склад</span>
+                            {% elif order.status == 'ACCEPTED_AT_WAREHOUSE' %}
+                                <span class="badge bg-success"><i class="bi bi-house-check me-1"></i>Принят на склад</span>
                             {% elif order.status == 'COMPLETED' %}
                                 <span class="badge bg-dark">Завершен</span>
                             {% endif %}

@@ -28,6 +28,7 @@
                         <th>Фактически наклеено</th>
                         <th>Дата производства</th>
                         <th>Статус</th>
+                        <th>Действия</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -36,7 +37,7 @@
                         <td class="fw-bold">#{{ order.order_number }}</td>
                         <td>{{ order.product.official_name }}</td>
                         <td><code>{{ order.product.gtin or 'Н/Д' }}</code></td>
-                        <td>{{ order.quantity }} шт.</td>
+                        <td>{{ order.total_quantity }} шт.</td>
                         <td class="fw-bold text-success fs-5">{{ order.total_applied }} шт.</td>
                         <td>
                             {% if order.production_date %}
@@ -47,9 +48,22 @@
                         </td>
                         <td>
                             {% if order.status == 'SENT_TO_WAREHOUSE' %}
-                                <span class="badge bg-warning text-dark"><i class="bi bi-truck me-1"></i>Передан на склад</span>
+                                <span class="badge bg-warning text-dark fs-6"><i class="bi bi-truck me-1"></i>Ожидает приемки</span>
+                            {% elif order.status in ['ACCEPTED_AT_WAREHOUSE', 'COMPLETED'] %}
+                                <span class="badge bg-success fs-6"><i class="bi bi-check-all me-1"></i>Принят на склад</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.status == 'SENT_TO_WAREHOUSE' %}
+                            <form action="/warehouse/order/{{ order.id }}/accept" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success fw-bold">
+                                    <i class="bi bi-check-lg me-1"></i> Принять
+                                </button>
+                            </form>
                             {% else %}
-                                <span class="badge bg-success"><i class="bi bi-check-all me-1"></i>Принят на складе</span>
+                            <button class="btn btn-sm btn-outline-secondary" disabled>
+                                <i class="bi bi-check2-circle me-1"></i> Принято
+                            </button>
                             {% endif %}
                         </td>
                     </tr>

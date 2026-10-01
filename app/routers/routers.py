@@ -145,13 +145,31 @@ warehouse_router = APIRouter(prefix="/warehouse")
 @warehouse_router.get("", response_class=HTMLResponse)
 async def warehouse_dashboard(request: Request, db: Session = Depends(get_db)):
     current_user = get_user_for_request(request, db)
-    orders = db.query(Order).filter(Order.status.in_(["SENT_TO_WAREHOUSE", OrderStatus.COMPLETED.value])).order_by(Order.shipment_date.asc()).all()
+    orders = db.query(Order).filter(Order.status.in_(["SENT_TO_WAREHOUSE", "ACCEPTED_AT_WAREHOUSE", OrderStatus.COMPLETED.value])).order_by(Order.shipment_date.asc()).all()
     return templates.TemplateResponse(request=request, name="warehouse/dashboard.html", context={
         "role": "warehouse",
         "current_user": current_user,
         "orders": orders,
         "today": date.today()
     })
+
+@warehouse_router.post("/order/{order_id}/accept")
+async def accept_warehouse_order(order_id: int, db: Session = Depends(get_db)):
+    order = db.get(Order, order_id)
+    if order:
+        order.status = "ACCEPTED_AT_WAREHOUSE"
+
+        # Global notification to all roles that order is accepted at warehouse
+        notif = Notification(
+            role="ALL",
+            title=f"Принят на склад: Заказ #{order.order_number}",
+            message=f"Склад подтвердил приемку заказа #{order.order_number} ({order.product.official_name}). Фактическое кол-во: {order.total_applied} шт."
+        )
+        db.add(notif)
+        db.commit()
+        logger.info("Warehouse accepted order #%s", order.order_number)
+
+    return RedirectResponse(url="/warehouse", status_code=303)
 
 
 # --- 1. FACADE ROUTER ---

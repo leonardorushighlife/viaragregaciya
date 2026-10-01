@@ -98,9 +98,11 @@
                                 {% elif order.status == 'CODES_PRINTED' %}bg-primary
                                 {% elif order.status == 'IN_PACKAGING' %}bg-info
                                 {% elif order.status == 'PACKAGED' %}bg-success
+                                {% elif order.status == 'SENT_TO_WAREHOUSE' %}bg-warning text-dark
+                                {% elif order.status == 'ACCEPTED_AT_WAREHOUSE' %}bg-success
                                 {% elif order.status == 'COMPLETED' %}bg-dark
                                 {% endif %}">
-                                {{ order.status }}
+                                {% if order.status == 'ACCEPTED_AT_WAREHOUSE' %}Принят на склад{% else %}{{ order.status }}{% endif %}
                             </span>
                         </td>
                         <td>
