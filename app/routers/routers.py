@@ -13,7 +13,20 @@ from app.services.email_service import send_email
 from app.services.chestny_znak import cz_service
 from app.services.excel_import import import_products_from_excel
 
-templates = Jinja2Templates(directory="templates")
+import sys
+import os
+
+def get_templates_dir():
+    base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    t_dir = os.path.join(base, "templates")
+    if not os.path.exists(t_dir):
+        try:
+            t_dir = os.path.join(sys._MEIPASS, "templates")
+        except Exception:
+            pass
+    return t_dir
+
+templates = Jinja2Templates(directory=get_templates_dir())
 logger = logging.getLogger("malvik.sessions")
 
 def get_user_for_request(request: Request, db: Session) -> User:

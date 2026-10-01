@@ -1,3 +1,5 @@
+import os
+import sys
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -19,7 +21,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 # Mount Static Files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+if not os.path.exists(static_dir):
+    try:
+        base_path = sys._MEIPASS
+        static_dir = os.path.join(base_path, "static")
+    except Exception:
+        pass
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include Routers
 app.include_router(main_router)
